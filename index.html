@@ -395,16 +395,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="patient-card">
-      <div class="p-avatar">RM</div>
-      <div class="p-name">Rohan Mehra</div>
-      <div class="p-sub">Lower back rehab · Since Feb 2025</div>
+      <div class="p-avatar" id="sidebar-avatar">–</div>
+      <div class="p-name" id="sidebar-name">–</div>
+      <div class="p-sub" id="sidebar-sub">–</div>
     </div>
 
     <!-- Human status — replaces raw "Recovery Score: 74" -->
-    <div class="human-status">
+    <div class="human-status" id="sidebar-status">
       <div class="hs-label">How you're doing</div>
-      <div class="hs-headline">Ahead of schedule for Week 14 ✓</div>
-      <div class="hs-sub">Gym return expected in 5–7 weeks at this pace</div>
+      <div class="hs-headline" id="hs-headline-text">–</div>
+      <div class="hs-sub" id="hs-sub-text">–</div>
     </div>
 
     <div class="nav-section">
@@ -445,9 +445,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
     <!-- ══ TODAY / OVERVIEW ══ -->
     <div class="page active" id="page-overview">
       <div class="page-head">
-        <div class="page-title">Good morning, Rohan.</div>
-        <div class="page-sub">Thursday, 7 May 2025 · Week 14 of 24</div>
+        <div class="page-title" id="overview-title">Welcome to Stance.</div>
+        <div class="page-sub" id="overview-sub"></div>
       </div>
+
+      <!-- SHOWN ONLY WHEN PROGRAMME IS ASSIGNED -->
+      <div id="assigned-content" style="display:none">
 
       <!-- SINGLE PRIMARY ACTION — fixes Mistake 3 -->
       <div class="today-hero">
@@ -572,7 +575,17 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
         </div>
         <div class="doc-body">"Rohan, you're making great progress — your back strength has visibly improved. The slight confidence dip is completely normal at this stage; I've seen it with almost every patient at week 12–15. Just keep your routine, don't skip the core work, and I'll see you on the 14th for a proper check-in. You're doing the right things."</div>
       </div>
-    </div>
+
+      </div><!-- end #assigned-content -->
+
+      <!-- SHOWN ONLY WHEN NO PROGRAMME ASSIGNED -->
+      <div id="unassigned-content" style="display:none">
+        <div class="empty-state" style="padding:4rem 1.5rem">
+          <div class="es-icon">🌱</div>
+          <div class="es-title">Your programme hasn't started yet</div>
+          <div class="es-body">Your physiotherapist will set up your personalised recovery plan. Once it's ready, your exercises, progress, and check-ins will appear here.<br><br>If you think this is a mistake, contact your clinic directly.</div>
+        </div>
+      </div>
 
     <!-- ══ TASKS / EXERCISES ══ -->
     <div class="page" id="page-tasks">
@@ -1126,10 +1139,20 @@ async function agSubmit() {
       }, { onConflict: 'user_id' });
     }
     if (!data.session) {
-      errEl.style.color = 'var(--green)';
-      errEl.textContent = 'Check your email to confirm your account, then log in.';
-      switchAuthTab('login');
-      btn.textContent = 'Log in'; btn.disabled = false;
+      // Show a dedicated email confirmation screen
+      document.querySelector('.ag-card').innerHTML = `
+        <div style="text-align:center;padding:1rem 0">
+          <div style="font-size:3rem;margin-bottom:1rem">📬</div>
+          <div style="font-family:var(--lora);font-size:22px;font-weight:600;color:var(--green);font-style:italic;margin-bottom:8px">Check your email</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:1.5rem">
+            We've sent a confirmation link to<br>
+            <strong style="color:var(--text)">${email}</strong><br><br>
+            Click the link in that email to verify your account, then come back here to log in.
+          </div>
+          <button class="ag-btn" onclick="location.reload()" style="max-width:200px;margin:0 auto;display:block">Back to Log in</button>
+          <div style="font-size:11px;color:var(--text3);margin-top:12px">Didn't receive it? Check your spam folder.</div>
+        </div>
+      `;
       return;
     }
   } else {
@@ -1197,71 +1220,78 @@ async function loadPatientProfile() {
 
 function applyProfile(name, condition) {
   const initials = name.split(/\s+/).slice(0,2).map(p => p[0]).join('').toUpperCase();
-  document.querySelectorAll('.p-name').forEach(el => el.textContent = name);
-  document.querySelectorAll('.p-avatar').forEach(el => el.textContent = initials);
+
+  // Sidebar
+  const sidebarAvatar = document.getElementById('sidebar-avatar');
+  const sidebarName = document.getElementById('sidebar-name');
+  const sidebarSub = document.getElementById('sidebar-sub');
+  if (sidebarAvatar) sidebarAvatar.textContent = initials;
+  if (sidebarName) sidebarName.textContent = name;
+  if (sidebarSub) sidebarSub.textContent = condition || 'Programme active';
+
+  // Topbar avatar
   const av = document.getElementById('topbar-avatar');
   if (av) av.textContent = initials;
+
+  // Sidebar status
+  const hh = document.getElementById('hs-headline-text');
+  const hs = document.getElementById('hs-sub-text');
+  if (hh) hh.textContent = 'Programme assigned ✓';
+  if (hs) hs.textContent = condition || 'Your clinician has set up your plan';
 
   // Greet
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = name.split(' ')[0];
-  const titleEl = document.querySelector('#page-overview .page-title');
+  const titleEl = document.getElementById('overview-title');
   if (titleEl) titleEl.textContent = `${greeting}, ${firstName}.`;
-
-  if (condition) {
-    const sub = document.querySelector('.p-sub');
-    if (sub) sub.textContent = condition;
-  }
-}
-
-function applyEmptyState() {
-  // Replace today's hero with an empty/welcome state
-  const hero = document.querySelector('.today-hero');
-  if (hero) {
-    hero.innerHTML = `
-      <div class="today-eyebrow">Welcome to Stance</div>
-      <div class="today-headline">Your recovery programme hasn't started yet.</div>
-      <div class="today-sub">Your physiotherapist will set up your personalised plan. Once it's ready, your exercises and progress will appear here.</div>
-    `;
-  }
-
-  // Hide prediction banner & reassurance (they're pre-loaded data)
-  document.querySelectorAll('.prediction-banner, .reassurance').forEach(el => el.style.display = 'none');
-
-  // Sidebar — replace name with email
-  const email = currentPatientUser?.email || 'Your account';
-  document.querySelectorAll('.p-name').forEach(el => el.textContent = email);
-  document.querySelectorAll('.p-avatar').forEach(el => el.textContent = '?');
-  const sub = document.querySelector('.p-sub');
-  if (sub) sub.textContent = 'Programme not yet assigned';
-  const hh = document.querySelector('.hs-headline');
-  if (hh) hh.textContent = 'Waiting for your programme';
-  const hs = document.querySelector('.hs-sub');
-  if (hs) hs.textContent = 'Your clinician will activate your plan';
-
-  const av = document.getElementById('topbar-avatar');
-  if (av) av.textContent = '?';
-
-  // Greet generically
-  const titleEl = document.querySelector('#page-overview .page-title');
-  if (titleEl) titleEl.textContent = 'Welcome to Stance.';
-  const subEl = document.querySelector('#page-overview .page-sub');
+  const subEl = document.getElementById('overview-sub');
   if (subEl) {
     const now = new Date();
     subEl.textContent = now.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
   }
 
-  // Empty checklist
-  const checklist = document.querySelector('.task-item');
-  if (checklist) {
-    const parent = checklist.parentElement;
-    parent.innerHTML = `<div class="empty-state">
-      <div class="es-icon">📋</div>
-      <div class="es-title">No exercises yet</div>
-      <div class="es-body">Your physiotherapist will add your daily exercises here once your programme is ready.</div>
-    </div>`;
-  }
+  // Show assigned content, hide unassigned
+  const assigned = document.getElementById('assigned-content');
+  const unassigned = document.getElementById('unassigned-content');
+  if (assigned) assigned.style.display = 'block';
+  if (unassigned) unassigned.style.display = 'none';
+}
+
+function applyEmptyState() {
+  const email = currentPatientUser?.email || 'Your account';
+
+  // Sidebar — show email, no initials
+  const sidebarAvatar = document.getElementById('sidebar-avatar');
+  const sidebarName = document.getElementById('sidebar-name');
+  const sidebarSub = document.getElementById('sidebar-sub');
+  if (sidebarAvatar) sidebarAvatar.textContent = email.charAt(0).toUpperCase();
+  if (sidebarName) sidebarName.textContent = email;
+  if (sidebarSub) sidebarSub.textContent = 'Programme not yet assigned';
+
+  // Topbar avatar
+  const av = document.getElementById('topbar-avatar');
+  if (av) av.textContent = email.charAt(0).toUpperCase();
+
+  // Sidebar status
+  const hh = document.getElementById('hs-headline-text');
+  const hs = document.getElementById('hs-sub-text');
+  if (hh) hh.textContent = 'Waiting for your programme';
+  if (hs) hs.textContent = 'Your clinician will activate your plan';
+
+  // Overview heading
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const titleEl = document.getElementById('overview-title');
+  if (titleEl) titleEl.textContent = `${greeting}. Welcome to Stance.`;
+  const subEl = document.getElementById('overview-sub');
+  if (subEl) subEl.textContent = '';
+
+  // Hide assigned content, show unassigned empty state
+  const assigned = document.getElementById('assigned-content');
+  const unassigned = document.getElementById('unassigned-content');
+  if (assigned) assigned.style.display = 'none';
+  if (unassigned) unassigned.style.display = 'block';
 }
 
 /* ─────────────────────────────────────────────────────

@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stance Health — Rohan Mehra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F9F7F4;
+  --bg2:#F2EFE9;
+  --surface:#FFFFFF;
+  --surface2:#F5F2ED;
+  --border:#E5DDD4;
+  --border2:#C8BDB0;
+  --green:#1A6645;
+  --green-mid:#2E9465;
+  --green-light:#D6EDE2;
+  --green-glow:rgba(46,148,101,0.1);
+  --amber:#B56B00;
+  --amber-light:#FEF3DC;
+  --coral:#C0392B;
+  --coral-light:#FDECEA;
+  --blue:#1A4A8A;
+  --blue-light:#E8EEF9;
+  --text:#1C1A18;
+  --text2:#5C5248;
+  --text3:#9A8E84;
+  --lora:'Lora',Georgia,serif;
+  --sans:'DM Sans',system-ui,sans-serif;
+  --radius:14px;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+
+/* Layout */
+.shell{display:grid;grid-template-columns:280px 1fr;grid-template-rows:auto 1fr;min-height:100vh}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:58px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.logo{font-family:var(--lora);font-size:18px;font-weight:600;color:var(--green);font-style:italic;letter-spacing:-.02em}
+.logo span{color:var(--text3);font-style:normal;font-size:12px;margin-left:8px;font-family:var(--sans);font-weight:400}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.auth-box{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.auth-input{width:150px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--text);font-family:var(--sans);outline:none}
+.auth-input:focus{border-color:var(--green-mid);background:var(--surface)}
+.auth-btn{background:var(--green);color:white;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:500;font-family:var(--sans);cursor:pointer}
+.auth-btn.secondary{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.auth-status{font-size:11px;color:var(--text3);min-width:90px;text-align:right}
+.flare-btn{display:flex;align-items:center;gap:6px;background:var(--coral-light);color:var(--coral);border:1px solid #F5C6C2;border-radius:8px;padding:6px 13px;font-size:12px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:all .2s}
+.flare-btn:hover{background:#FADBDB}
+.avatar-sm{width:34px;height:34px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--green);cursor:pointer;font-family:var(--sans)}
+
+/* Sidebar */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:1.5rem 0;position:sticky;top:58px;height:calc(100vh - 58px);overflow-y:auto;display:flex;flex-direction:column}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Patient card in sidebar */
+.patient-card{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem}
+.p-avatar{width:52px;height:52px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-family:var(--lora);font-size:18px;color:var(--green);margin-bottom:10px;border:2px solid var(--green-light)}
+.p-name{font-family:var(--lora);font-size:17px;color:var(--text);line-height:1.2;font-style:italic}
+.p-sub{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* Human status — replaces recovery score */
+.human-status{padding:1rem 1.5rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+.hs-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--text3);margin-bottom:6px}
+.hs-headline{font-family:var(--lora);font-size:14px;color:var(--green);line-height:1.4;font-style:italic}
+.hs-sub{font-size:11px;color:var(--text2);margin-top:4px}
+
+/* Nav */
+.nav-section{padding:0 .75rem;margin-bottom:.5rem}
+.nav-label{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;padding:0 .75rem;margin-bottom:.5rem}
+.nav-item{display:flex;align-items:center;gap:10px;padding:.65rem .75rem;border-radius:10px;color:var(--text2);font-size:13px;cursor:pointer;transition:all .18s;border:none;background:none;width:100%;text-align:left;font-family:var(--sans)}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--green-light);color:var(--green);font-weight:500}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.nav-badge{margin-left:auto;font-size:10px;background:var(--amber-light);color:var(--amber);padding:2px 7px;border-radius:10px;font-weight:500}
+.sidebar-footer{margin-top:auto;padding:1.25rem 1.5rem;border-top:1px solid var(--border)}
+.sf-label{font-size:11px;color:var(--text3)}
+.sf-doc{display:flex;align-items:center;gap:8px;margin-top:6px}
+.doc-avatar-sm{width:28px;height:28px;border-radius:50%;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--blue);flex-shrink:0}
+.sf-doc-name{font-size:12px;color:var(--text);font-weight:500}
+
+/* Main */
+.main{padding:2rem;overflow-y:auto;animation:fadeIn .3s ease;background:var(--bg)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.page{display:none}.page.active{display:block}
+
+/* Page header */
+.page-head{margin-bottom:1.75rem}
+.page-title{font-family:var(--lora);font-size:26px;font-weight:600;color:var(--text);line-height:1;font-style:italic}
+.page-sub{font-size:13px;color:var(--text3);margin-top:5px}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem}
+.card-title{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:.9rem}
+.card.green-edge{border-left:3px solid var(--green-mid)}
+.card.amber-edge{border-left:3px solid var(--amber)}
+
+/* Grids */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.gap-b{margin-bottom:14px}
+
+/* HERO - Today's focus (single primary action) */
+.today-hero{background:linear-gradient(135deg,#1A6645 0%,#2E9465 100%);border-radius:16px;padding:1.75rem;margin-bottom:14px;color:white;position:relative;overflow:hidden}
+.today-hero::after{content:'';position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,0.06)}
+.today-eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:.12em;opacity:.7;margin-bottom:6px}
+.today-headline{font-family:var(--lora);font-size:20px;font-weight:600;font-style:italic;line-height:1.3;margin-bottom:6px}
+.today-sub{font-size:13px;opacity:.85;line-height:1.5}
+.today-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9px;font-size:12px;font-weight:500;cursor:pointer;transition:all .18s;font-family:var(--sans);border:none}
+.btn-white{background:white;color:var(--green)}
+.btn-white:hover{background:#f0f0f0}
+.btn-outline-white{background:transparent;color:white;border:1.5px solid rgba(255,255,255,0.4)}
+.btn-outline-white:hover{background:rgba(255,255,255,0.1)}
+.btn-primary{background:var(--green);color:white}
+.btn-primary:hover{background:var(--green-mid)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+
+/* Avoid list — replaces missing "what to avoid" section */
+.avoid-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.avoid-row:last-child{border-bottom:none}
+.avoid-icon{font-size:16px;flex-shrink:0}
+
+/* Tasks */
+.task-item{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.task-item:last-child{border-bottom:none}
+.checkbox{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--border2);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;margin-top:1px;transition:all .2s}
+.checkbox:hover{border-color:var(--green-mid)}
+.checkbox.checked{background:var(--green);border-color:var(--green)}
+.checkbox.checked::after{content:'✓';color:white;font-size:12px;font-weight:600}
+.task-body{flex:1}
+.task-t{font-size:13px;color:var(--text);line-height:1.35}
+.task-t.done{color:var(--text3);text-decoration:line-through}
+/* WHY label — fixes Mistake 9 */
+.task-why{font-size:11px;color:var(--green);margin-top:3px;line-height:1.4}
+.task-m{font-size:11px;color:var(--text3);margin-top:2px}
+.task-freq{margin-left:auto;font-size:10px;font-weight:500;padding:3px 8px;border-radius:5px;background:var(--surface2);color:var(--text3);flex-shrink:0}
+
+/* Reassurance box — fixes Mistake 4 */
+.reassurance{background:var(--green-light);border:1px solid #A8D8C0;border-radius:12px;padding:1rem 1.25rem;margin:14px 0;display:flex;gap:12px;align-items:flex-start}
+.reassurance-icon{font-size:20px;flex-shrink:0}
+.reassurance-text{font-size:13px;color:var(--green);line-height:1.6}
+.reassurance-text strong{font-weight:600;display:block;margin-bottom:3px}
+.reassurance.warn{background:var(--amber-light);border-color:#EDD59A}
+.reassurance.warn .reassurance-text{color:var(--amber)}
+
+/* Progress bars */
+.prog-wrap{margin-bottom:14px}
+.prog-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.prog-name{font-size:13px;color:var(--text)}
+.prog-meaning{font-size:11px;color:var(--text3)} /* human translation of metric */
+.prog-pct{font-size:12px;color:var(--text2);font-weight:500}
+.prog-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.prog-fill.green{background:var(--green-mid)}
+.prog-fill.amber{background:var(--amber)}
+
+/* Prediction banner — fixes Mistake 10 */
+.prediction-banner{background:var(--surface);border:1.5px solid var(--green-mid);border-radius:12px;padding:1rem 1.25rem;display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.pb-icon{font-size:28px;flex-shrink:0}
+.pb-text{flex:1}
+.pb-headline{font-family:var(--lora);font-size:15px;font-style:italic;color:var(--text);line-height:1.3}
+.pb-sub{font-size:11px;color:var(--text3);margin-top:3px}
+
+/* Health signals — human language only */
+.signal-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.signal-row:last-child{border-bottom:none}
+.sig-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.sig-dot.green{background:var(--green-mid)}
+.sig-dot.amber{background:var(--amber)}
+.sig-dot.coral{background:var(--coral)}
+.sig-info{flex:1}
+.sig-name{font-size:13px;color:var(--text)}
+.sig-val{font-size:11px;color:var(--text3);margin-top:1px}
+.sig-badge{font-size:10px;font-weight:500;padding:3px 8px;border-radius:6px}
+.sig-badge.green{background:var(--green-light);color:var(--green)}
+.sig-badge.amber{background:var(--amber-light);color:var(--amber)}
+.sig-badge.coral{background:var(--coral-light);color:var(--coral)}
+
+/* Appointments */
+.appt-item{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--border)}
+.appt-item:last-child{border-bottom:none}
+.appt-cal{min-width:46px;text-align:center;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:7px 5px}
+.appt-day{font-family:var(--lora);font-size:22px;color:var(--text);line-height:1}
+.appt-mo{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:1px}
+.appt-info{flex:1}
+.appt-title{font-size:13px;font-weight:500;color:var(--text);line-height:1.3}
+.appt-meta{font-size:11px;color:var(--text3);margin-top:3px}
+.appt-tags{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
+.appt-item.past .appt-cal{opacity:.45}
+.appt-item.past .appt-title{color:var(--text2)}
+.tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:500;padding:3px 8px;border-radius:6px;letter-spacing:.01em}
+.tag-green{background:var(--green-light);color:var(--green)}
+.tag-amber{background:var(--amber-light);color:var(--amber)}
+.tag-coral{background:var(--coral-light);color:var(--coral)}
+.tag-muted{background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+
+/* KV rows */
+.kv{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv-k{color:var(--text2)}
+.kv-v{font-weight:500;color:var(--text)}
+.kv-v.green{color:var(--green)}
+.kv-v.amber{color:var(--amber)}
+.kv-v.coral{color:var(--coral)}
+
+/* Doctor note — more human, conversational */
+.doc-note{background:var(--blue-light);border:1px solid #C5D5EE;border-radius:12px;padding:1.25rem;margin-top:14px}
+.doc-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.doc-avatar{width:38px;height:38px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-family:var(--lora);font-size:14px;color:white;flex-shrink:0;font-weight:600}
+.doc-name{font-size:13px;font-weight:500;color:var(--text)}
+.doc-role{font-size:11px;color:var(--text3)}
+.doc-body{font-size:13px;color:var(--text);line-height:1.75;font-style:italic}
+.doc-date{font-size:11px;color:var(--text3);margin-top:8px}
+
+/* Milestones */
+.milestone-grid{display:flex;flex-wrap:wrap;gap:8px}
+.milestone{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:7px 11px;font-size:12px;color:var(--text2)}
+.milestone.done{border-color:#A8D8C0;color:var(--green);background:var(--green-light)}
+.milestone.locked{opacity:.35}
+.milestone-icon{font-size:14px}
+
+/* Next appt hero */
+.next-hero{background:linear-gradient(135deg,#1A4A8A 0%,#2A6AC0 100%);border-radius:14px;padding:1.5rem;display:flex;align-items:center;gap:1.5rem;margin-bottom:14px;position:relative;overflow:hidden;color:white}
+.next-hero::after{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.06)}
+.next-big{font-family:var(--lora);font-size:40px;color:white;line-height:1;font-style:italic}
+.next-divider{width:1px;height:55px;background:rgba(255,255,255,0.2);flex-shrink:0}
+.next-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;opacity:.7;margin-bottom:4px}
+.next-title{font-size:15px;font-weight:500;color:white}
+.next-meta{font-size:12px;opacity:.8;margin-top:3px}
+.next-actions{margin-top:10px;display:flex;gap:7px;flex-wrap:wrap}
+
+/* Flare-up modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:white;border-radius:18px;padding:2rem;max-width:480px;width:calc(100% - 40px);animation:modalIn .25s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.modal-title{font-family:var(--lora);font-size:20px;font-style:italic;color:var(--text);margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--text3);margin-bottom:1.25rem}
+.flare-option{display:flex;align-items:center;gap:12px;padding:13px;border:1.5px solid var(--border);border-radius:11px;margin-bottom:10px;cursor:pointer;transition:all .18s}
+.flare-option:hover{border-color:var(--green-mid);background:var(--green-light)}
+.flare-option-icon{font-size:22px;flex-shrink:0}
+.flare-option-text strong{display:block;font-size:13px;color:var(--text)}
+.flare-option-text span{font-size:12px;color:var(--text3)}
+.modal-close{display:block;width:100%;padding:10px;text-align:center;background:var(--surface2);border:none;border-radius:9px;font-size:13px;color:var(--text3);cursor:pointer;font-family:var(--sans);margin-top:4px}
+.flare-answer{display:none;padding:1rem;background:var(--green-light);border:1px solid #A8D8C0;border-radius:11px;margin-top:-4px;margin-bottom:10px;font-size:13px;color:var(--green);line-height:1.6}
+.flare-answer.warn{background:var(--amber-light);border-color:#EDD59A;color:var(--amber)}
+.flare-answer.coral{background:var(--coral-light);border-color:#F5C6C2;color:var(--coral)}
+
+/* Reports — human language */
+.report-item{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}
+.report-item:last-child{border-bottom:none}
+.report-icon{width:40px;height:40px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.report-info{flex:1}
+.report-title{font-size:13px;color:var(--text);font-weight:500}
+.report-human{font-size:12px;color:var(--green);margin-top:3px;line-height:1.4} /* plain english translation */
+.report-meta{font-size:11px;color:var(--text3);margin-top:2px}
+.dl-btn{background:transparent;border:1px solid var(--border);color:var(--text2);padding:6px 11px;border-radius:7px;font-size:11px;cursor:pointer;font-family:var(--sans);transition:all .18s;flex-shrink:0}
+.dl-btn:hover{border-color:var(--green-mid);color:var(--green)}
+
+/* Chart */
+.chart-area{display:flex;align-items:flex-end;gap:5px;height:80px;margin:12px 0 4px}
+.bar{flex:1;border-radius:4px 4px 0 0;background:var(--border);transition:all .4s;cursor:pointer;min-height:4px}
+.bar:hover{background:var(--green-light)}
+.bar.hi{background:var(--green-mid)}
+.bar.lo{background:#EFBBB6}
+.chart-labels{display:flex;gap:5px}
+.chart-labels div{flex:1;text-align:center;font-size:9px;color:var(--text3)}
+
+/* Habit anchor */
+.anchor-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:1rem}
+.anchor-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--green);margin-bottom:6px;font-weight:500}
+.anchor-text{font-size:13px;color:var(--text);line-height:1.5}
+.anchor-anchor{font-size:12px;color:var(--text2);margin-top:5px}
+
+/* Relapse prevention section — fixes Mistake 11 */
+.relapse-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.relapse-item:last-child{border-bottom:none}
+.relapse-num{width:22px;height:22px;border-radius:50%;background:var(--green-light);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.relapse-body strong{display:block;color:var(--text);font-size:13px}
+.relapse-body span{color:var(--text3);font-size:12px}
+
+/* Weekly focus box — fixes Mistake 6 */
+.week-focus{background:var(--amber-light);border:1px solid #EDD59A;border-radius:12px;padding:1rem 1.25rem;margin-bottom:14px}
+.wf-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--amber);font-weight:500;margin-bottom:6px}
+.wf-text{font-size:13px;color:var(--text);line-height:1.5}
+
+/* Compliance — reframed positively */
+.prog-note{font-size:11px;color:var(--text3);margin-top:8px;font-style:italic;line-height:1.4}
+.prog-note.positive{color:var(--green)}
+
+/* Scrollbar */
+.main::-webkit-scrollbar{width:5px}
+.main::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* Responsive */
+@media(max-width:960px){
+  .shell{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
+  .sidebar{position:relative;height:auto;top:auto;flex-direction:row;padding:.75rem;overflow-x:auto;border-right:none;border-bottom:1px solid var(--border)}
+  .patient-card,.human-status,.sidebar-footer{display:none}
+  .nav-section{display:flex;gap:4px;padding:0;margin-bottom:0}
+  .nav-label{display:none}
+  .nav-item{white-space:nowrap;padding:6px 12px}
+  .g3{grid-template-columns:1fr 1fr}
+  .next-hero{flex-wrap:wrap;gap:1rem}
+  .next-divider{display:none}
+  .main{padding:1.25rem}
+}
+@media(max-width:600px){
+  .g2{grid-template-columns:1fr}.g3{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="logo">Stance <span>Health Portal</span></div>
+    <div class="topbar-right">
+      <div class="auth-box">
+        <input class="auth-input" id="auth-email" type="email" placeholder="Email">
+        <input class="auth-input" id="auth-password" type="password" placeholder="Password">
+        <button class="auth-btn" onclick="signInPatient()">Log in</button>
+        <button class="auth-btn secondary" onclick="signUpPatient()">Sign up</button>
+        <button class="auth-btn secondary" onclick="signOutPatient()">Log out</button>
+        <span class="auth-status" id="auth-status">Not signed in</span>
+      </div>
+      <!-- Flare-up protocol button — fixes Mistake 7 -->
+      <button class="flare-btn" onclick="openFlare()">
+        🚨 Pain flare-up?
+      </button>
+      <div class="avatar-sm">RM</div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="patient-card">
+      <div class="p-avatar">RM</div>
+      <div class="p-name">Rohan Mehra</div>
+      <div class="p-sub">Lower back rehab · Since Feb 2025</div>
+    </div>
+
+    <!-- Human status — replaces raw "Recovery Score: 74" -->
+    <div class="human-status">
+      <div class="hs-label">How you're doing</div>
+      <div class="hs-headline">Ahead of schedule for Week 14 ✓</div>
+      <div class="hs-sub">Gym return expected in 5–7 weeks at this pace</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">My recovery</div>
+      <button class="nav-item active" id="nav-overview" onclick="showPage('overview')">
+        <span class="nav-icon">🏠</span> Today
+      </button>
+      <button class="nav-item" id="nav-tasks" onclick="showPage('tasks')">
+        <span class="nav-icon">✅</span> My Exercises
+        <span class="nav-badge">2 left</span>
+      </button>
+      <button class="nav-item" id="nav-progress" onclick="showPage('progress')">
+        <span class="nav-icon">📈</span> My Progress
+      </button>
+      <button class="nav-item" id="nav-reports" onclick="showPage('reports')">
+        <span class="nav-icon">📋</span> Reports
+      </button>
+      <button class="nav-item" id="nav-appointments" onclick="showPage('appointments')">
+        <span class="nav-icon">🗓</span> Appointments
+      </button>
+      <button class="nav-item" id="nav-prevent" onclick="showPage('prevent')">
+        <span class="nav-icon">🛡</span> Stay Pain-Free
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sf-label">Your clinician</div>
+      <div class="sf-doc">
+        <div class="doc-avatar-sm">PK</div>
+        <div class="sf-doc-name">Dr. Priya Kapoor</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- ══ TODAY / OVERVIEW ══ -->
+    <div class="page active" id="page-overview">
+      <div class="page-head">
+        <div class="page-title">Good morning, Rohan.</div>
+        <div class="page-sub">Thursday, 7 May 2025 · Week 14 of 24</div>
+      </div>
+
+      <!-- SINGLE PRIMARY ACTION — fixes Mistake 3 -->
+      <div class="today-hero">
+        <div class="today-eyebrow">Your focus today</div>
+        <div class="today-headline">2 exercises left — takes 24 minutes total</div>
+        <div class="today-sub">Morning mobility done ✓ &nbsp;·&nbsp; Core stability + resistance bands still to go &nbsp;·&nbsp; No pain this week — great.</div>
+        <div class="today-actions">
+          <button class="btn btn-white" onclick="showPage('tasks')">See my exercises →</button>
+          <button class="btn btn-outline-white" onclick="showPage('appointments')">Next session: May 14</button>
+        </div>
+      </div>
+
+      <!-- Prediction — fixes Mistake 10 -->
+      <div class="prediction-banner">
+        <div class="pb-icon">🏋️</div>
+        <div class="pb-text">
+          <div class="pb-headline">At your current pace, you're on track to return to the gym in 5–7 weeks.</div>
+          <div class="pb-sub">Keep hitting 65%+ completion this week to stay on schedule.</div>
+        </div>
+      </div>
+
+      <!-- Reassurance — fixes Mistake 4 -->
+      <div class="reassurance">
+        <div class="reassurance-icon">🩺</div>
+        <div class="reassurance-text">
+          <strong>You're recovering normally.</strong>
+          Your confidence dipped slightly last week — this is very common during maintenance phase. Dr. Kapoor has reviewed your data and sees no structural concerns. She may reach out this week for a quick check-in.
+        </div>
+      </div>
+
+      <div class="g2 gap-b">
+        <!-- Today's checklist — simplified -->
+        <div class="card">
+          <div class="card-title">Today's checklist</div>
+          <div class="task-item">
+            <div class="checkbox checked"></div>
+            <div class="task-body">
+              <div class="task-t done">Morning mobility — 10 min</div>
+              <div class="task-m">Done at 7:14 AM ✓</div>
+            </div>
+          </div>
+          <div class="task-item">
+            <div class="checkbox" id="ov-c2" onclick="toggleCheck('ov-c2','ov-t2')"></div>
+            <div class="task-body">
+              <div class="task-t" id="ov-t2">Core stability — 3 sets</div>
+              <div class="task-why">Reduces pressure on your lower back while sitting</div>
+              <div class="task-m">Due by 8 PM · 12 min</div>
+            </div>
+          </div>
+          <div class="task-item">
+            <div class="checkbox" id="ov-c3" onclick="toggleCheck('ov-c3','ov-t3')"></div>
+            <div class="task-body">
+              <div class="task-t" id="ov-t3">Resistance band rows — 3 × 15</div>
+              <div class="task-why">Supports your upper back posture at your desk</div>
+              <div class="task-m">Due today · 8 min</div>
+            </div>
+          </div>
+          <!-- Positive reframe — fixes Mistake 5 -->
+          <div class="prog-note positive" style="margin-top:10px">1 of 3 done. Small dips are normal — just restart with today's session.</div>
+        </div>
+
+        <!-- What to avoid — fixes Mistake 1 gap #3 -->
+        <div class="card">
+          <div class="card-title">Avoid today</div>
+          <div class="avoid-row">
+            <div class="avoid-icon">🪑</div>
+            <div>Sitting longer than 90 minutes without a short walk</div>
+          </div>
+          <div class="avoid-row">
+            <div class="avoid-icon">📦</div>
+            <div>Lifting anything over 10 kg without bending your knees</div>
+          </div>
+          <div class="avoid-row">
+            <div class="avoid-icon">🛌</div>
+            <div>Sleeping flat on your stomach — causes lower back strain</div>
+          </div>
+          <div class="avoid-row">
+            <div class="avoid-icon">💺</div>
+            <div>Slouching in your chair — use the lumbar support</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Goals in human language — fixes Mistake 6 -->
+      <div class="card gap-b">
+        <div class="card-title">How close are you to normal life?</div>
+        <div class="prog-wrap">
+          <div class="prog-head">
+            <span class="prog-name">Pain-free daily activity</span>
+            <span class="prog-pct">82%</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill green" style="width:82%"></div></div>
+          <div class="prog-meaning">You should feel comfortable bending, sitting, and light walking</div>
+        </div>
+        <div class="prog-wrap">
+          <div class="prog-head">
+            <span class="prog-name">Return to gym training</span>
+            <span class="prog-pct">55%</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill amber" style="width:55%"></div></div>
+          <div class="prog-meaning">Moderate exercises are getting safer — heavy lifts still need caution</div>
+        </div>
+        <div class="prog-wrap" style="margin-bottom:0">
+          <div class="prog-head">
+            <span class="prog-name">Comfortable desk posture 4+ hours</span>
+            <span class="prog-pct">40%</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill amber" style="width:40%"></div></div>
+          <div class="prog-meaning">Still building endurance — take seated breaks every 90 min</div>
+        </div>
+      </div>
+
+      <!-- Dr. note — conversational, not report-style — fixes Mistake 8 -->
+      <div class="doc-note">
+        <div class="doc-header">
+          <div class="doc-avatar">PK</div>
+          <div>
+            <div class="doc-name">Dr. Priya Kapoor</div>
+            <div class="doc-role">Your physiotherapist · Stance Health</div>
+          </div>
+          <span class="tag tag-muted" style="margin-left:auto">1 May</span>
+        </div>
+        <div class="doc-body">"Rohan, you're making great progress — your back strength has visibly improved. The slight confidence dip is completely normal at this stage; I've seen it with almost every patient at week 12–15. Just keep your routine, don't skip the core work, and I'll see you on the 14th for a proper check-in. You're doing the right things."</div>
+      </div>
+    </div>
+
+    <!-- ══ TASKS / EXERCISES ══ -->
+    <div class="page" id="page-tasks">
+      <div class="page-head">
+        <div class="page-title">My Exercises</div>
+        <div class="page-sub">Thursday, 7 May · 2 left today · Takes about 20 min total</div>
+      </div>
+
+      <!-- Week focus in plain English — fixes Mistake 6 -->
+      <div class="week-focus">
+        <div class="wf-label">This week's focus</div>
+        <div class="wf-text">Building core endurance so your lower back stays supported during long desk sessions. Keep at it — this is the most important phase for your gym return.</div>
+      </div>
+
+      <div class="card gap-b">
+        <div class="card-title">Today</div>
+        <div class="task-item">
+          <div class="checkbox checked"></div>
+          <div class="task-body">
+            <div class="task-t done">Morning mobility — 10 min</div>
+            <div class="task-why">Warms up your spine so the rest of your day feels easier</div>
+            <div class="task-m">Done 7:14 AM</div>
+          </div>
+          <span class="task-freq">Daily</span>
+        </div>
+        <div class="task-item">
+          <div class="checkbox" id="tc2" onclick="toggleCheck('tc2','tt2')"></div>
+          <div class="task-body">
+            <div class="task-t" id="tt2">Core stability — 3 sets × 12 reps</div>
+            <div class="task-why">Reduces pressure on your lower back when sitting and bending forward</div>
+            <div class="task-m">McKenzie press-up · Bird-dog · Dead bug · 12 min</div>
+          </div>
+          <span class="task-freq">Daily</span>
+        </div>
+        <div class="task-item">
+          <div class="checkbox" id="tc3" onclick="toggleCheck('tc3','tt3')"></div>
+          <div class="task-body">
+            <div class="task-t" id="tt3">Hip flexor stretch — 2 min each side</div>
+            <div class="task-why">Tight hip flexors pull on your lower back — this directly reduces that</div>
+            <div class="task-m">Hold 60s each · Best anchor: after lunch</div>
+          </div>
+          <span class="task-freq">Daily</span>
+        </div>
+        <div class="task-item">
+          <div class="checkbox" id="tc4" onclick="toggleCheck('tc4','tt4')"></div>
+          <div class="task-body">
+            <div class="task-t" id="tt4">Resistance band rows — 3 × 15</div>
+            <div class="task-why">Strengthens your upper back so your posture holds up at your desk</div>
+            <div class="task-m">Due today (Thu) · 8 min</div>
+          </div>
+          <span class="task-freq">Mon / Thu</span>
+        </div>
+      </div>
+
+      <!-- Positive framing for compliance — fixes Mistake 5 -->
+      <div class="reassurance" style="margin-top:0;margin-bottom:14px">
+        <div class="reassurance-icon">💚</div>
+        <div class="reassurance-text">
+          <strong>You've been consistent for 14 weeks — that's rare.</strong>
+          Missing a day or two is completely normal and won't undo your progress. Just restart with today's session, no guilt needed.
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="anchor-box">
+          <div class="anchor-label">Your habit anchor</div>
+          <div class="anchor-text">Attached to: <strong>morning chai + before opening your phone</strong></div>
+          <div class="anchor-anchor">🎵 "Focus Deep" playlist reserved for exercise only</div>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="card-title">This week so far</div>
+          <div class="kv"><span class="kv-k">Exercises done</span><span class="kv-v green">5 of 8</span></div>
+          <div class="kv"><span class="kv-k">Pain episodes</span><span class="kv-v green">0 this month 🎉</span></div>
+          <div class="kv"><span class="kv-k">Weeks active</span><span class="kv-v green">14 in a row</span></div>
+          <div class="kv"><span class="kv-k">Next session</span><span class="kv-v">May 14 with Dr. Kapoor</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PROGRESS ══ -->
+    <div class="page" id="page-progress">
+      <div class="page-head">
+        <div class="page-title">My Progress</div>
+        <div class="page-sub">Tracking your recovery since February 2025</div>
+      </div>
+
+      <!-- Am I recovering normally? — the #1 emotional question -->
+      <div class="reassurance" style="margin-bottom:14px">
+        <div class="reassurance-icon">✅</div>
+        <div class="reassurance-text">
+          <strong>Yes — you're recovering faster than expected.</strong>
+          Most patients at Week 14 are at 65–70% of their goals. You're at 82% for daily activity. Keep going.
+        </div>
+      </div>
+
+      <!-- Prediction — motivational -->
+      <div class="prediction-banner gap-b">
+        <div class="pb-icon">🏃</div>
+        <div class="pb-text">
+          <div class="pb-headline">Expected gym return: 5–7 weeks from now.</div>
+          <div class="pb-sub">Based on your current consistency (68%) and clinical progress. Maintaining 65%+ keeps you on track.</div>
+        </div>
+      </div>
+
+      <!-- What is improving — human language — fixes Mistake 6 -->
+      <div class="card gap-b">
+        <div class="card-title">What's getting better</div>
+        <div class="signal-row">
+          <div class="sig-dot green"></div>
+          <div class="sig-info">
+            <div class="sig-name">Bending and sitting</div>
+            <div class="sig-val">Noticeably more comfortable — your back flexibility improved this month</div>
+          </div>
+          <span class="sig-badge green">Improving</span>
+        </div>
+        <div class="signal-row">
+          <div class="sig-dot green"></div>
+          <div class="sig-info">
+            <div class="sig-name">Pain levels</div>
+            <div class="sig-val">Zero pain episodes this month — down from daily pain at intake in February</div>
+          </div>
+          <span class="sig-badge green">Excellent</span>
+        </div>
+        <div class="signal-row">
+          <div class="sig-dot green"></div>
+          <div class="sig-info">
+            <div class="sig-name">Daily activity comfort</div>
+            <div class="sig-val">82% of normal daily life feels manageable now</div>
+          </div>
+          <span class="sig-badge green">Good</span>
+        </div>
+        <div class="signal-row">
+          <div class="sig-dot amber"></div>
+          <div class="sig-info">
+            <div class="sig-name">Confidence in your recovery</div>
+            <div class="sig-val">Dipped slightly last week — normal at this stage, Dr. Kapoor is watching</div>
+          </div>
+          <span class="sig-badge amber">Watch</span>
+        </div>
+        <div class="signal-row">
+          <div class="sig-dot amber"></div>
+          <div class="sig-info">
+            <div class="sig-name">Gym-level strength</div>
+            <div class="sig-val">55% there — mild left-right imbalance being addressed with new exercise</div>
+          </div>
+          <span class="sig-badge amber">In progress</span>
+        </div>
+      </div>
+
+      <div class="card gap-b">
+        <div class="card-title">Exercise consistency — last 10 weeks</div>
+        <div class="chart-area" id="main-chart"></div>
+        <div class="chart-labels" id="main-labels"></div>
+        <!-- Reframed compliance note — fixes Mistake 5 -->
+        <div class="prog-note">Week 11 dipped during work travel — totally normal. You bounced back to 68% this week. Target is 65% or above.</div>
+      </div>
+
+      <div class="card gap-b">
+        <div class="card-title">Goals</div>
+        <div class="prog-wrap">
+          <div class="prog-head"><span class="prog-name">Pain-free daily activity</span><span class="prog-pct">82%</span></div>
+          <div class="prog-bar"><div class="prog-fill green" style="width:82%"></div></div>
+          <div class="prog-meaning">Sitting, walking, light bending all feel comfortable now</div>
+        </div>
+        <div class="prog-wrap">
+          <div class="prog-head"><span class="prog-name">Return to gym</span><span class="prog-pct">55%</span></div>
+          <div class="prog-bar"><div class="prog-fill amber" style="width:55%"></div></div>
+          <div class="prog-meaning">Moderate exercise safe, heavy lifts and deadlifts still being built toward</div>
+        </div>
+        <div class="prog-wrap" style="margin-bottom:0">
+          <div class="prog-head"><span class="prog-name">Desk posture 4+ hours</span><span class="prog-pct">40%</span></div>
+          <div class="prog-bar"><div class="prog-fill amber" style="width:40%"></div></div>
+          <div class="prog-meaning">Still building endurance — hip stretches and core work will get you there</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Milestones</div>
+        <div class="milestone-grid">
+          <div class="milestone done"><span class="milestone-icon">🏅</span> Week 4 check-in passed</div>
+          <div class="milestone done"><span class="milestone-icon">🏅</span> Week 8 milestone reached</div>
+          <div class="milestone done"><span class="milestone-icon">🏅</span> 0 pain for 4 weeks</div>
+          <div class="milestone done"><span class="milestone-icon">🏅</span> 10 sessions completed</div>
+          <div class="milestone" style="border-color:#A8D8C0;color:var(--green);opacity:.7"><span class="milestone-icon">⏳</span> Week 12 review — in progress</div>
+          <div class="milestone locked"><span class="milestone-icon">🔒</span> Programme graduate (Week 24)</div>
+          <div class="milestone locked"><span class="milestone-icon">🔒</span> Cleared to return to gym</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ REPORTS ══ -->
+    <div class="page" id="page-reports">
+      <div class="page-head">
+        <div class="page-title">Reports</div>
+        <div class="page-sub">Monthly summaries of your recovery</div>
+      </div>
+
+      <div class="card gap-b green-edge">
+        <div class="card-title">Latest — May 2025</div>
+        <!-- Plain English translation first — fixes Mistake 6 -->
+        <div class="reassurance" style="margin-top:0;margin-bottom:14px">
+          <div class="reassurance-icon">📊</div>
+          <div class="reassurance-text">
+            <strong>In plain English: a strong month.</strong>
+            Your back is bending more easily, you had zero pain, and your strength is steadily improving. One thing to watch: your confidence in the recovery dipped — Dr. Kapoor is tracking this closely.
+          </div>
+        </div>
+
+        <div class="g2" style="margin-bottom:14px">
+          <div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px">What improved</div>
+            <div class="kv"><span class="kv-k">Bending range</span><span class="kv-v green">Better than April ↑</span></div>
+            <div class="kv"><span class="kv-k">Left–right balance</span><span class="kv-v amber">Mild gap, improving</span></div>
+            <div class="kv"><span class="kv-k">Pain this month</span><span class="kv-v green">Almost none (0.8/10)</span></div>
+          </div>
+          <div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:8px">Behavioural</div>
+            <div class="kv"><span class="kv-k">Exercise completion</span><span class="kv-v">66% avg (target 65%)</span></div>
+            <div class="kv"><span class="kv-k">Confidence in recovery</span><span class="kv-v amber">Slight dip — watch</span></div>
+            <div class="kv"><span class="kv-k">Check-in responses</span><span class="kv-v">71%</span></div>
+          </div>
+        </div>
+
+        <!-- Doctor note — conversational, not clinical -->
+        <div class="doc-note">
+          <div class="doc-header">
+            <div class="doc-avatar">PK</div>
+            <div>
+              <div class="doc-name">Dr. Priya Kapoor</div>
+              <div class="doc-role">Your physiotherapist</div>
+            </div>
+            <span class="tag tag-muted" style="margin-left:auto">1 May 2025</span>
+          </div>
+          <div class="doc-body">"Rohan, this is a strong month. Your mobility has genuinely improved — you'd notice it when bending to pick something up or sitting for long periods. The small left-right imbalance is nothing to worry about; the new banded exercise will sort it out over the next few weeks. Main thing I'm watching is your confidence — see you on the 14th for a proper catch-up."</div>
+          <div class="doc-date">Reviewed 1 May 2025 · Next review after May 14 session</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Previous reports</div>
+        <div class="report-item">
+          <div class="report-icon">📋</div>
+          <div class="report-info">
+            <div class="report-title">April 2025</div>
+            <div class="report-human">Good month — pain dropping, bending easier, strength building</div>
+            <div class="report-meta">Generated 1 Apr 2025</div>
+          </div>
+          <button class="dl-btn">⬇ PDF</button>
+        </div>
+        <div class="report-item">
+          <div class="report-icon">📋</div>
+          <div class="report-info">
+            <div class="report-title">March 2025</div>
+            <div class="report-human">Pain dropped from 4.2 to 1.8 — risk level improved from high to moderate</div>
+            <div class="report-meta">Generated 1 Mar 2025</div>
+          </div>
+          <button class="dl-btn">⬇ PDF</button>
+        </div>
+        <div class="report-item" style="border-bottom:none">
+          <div class="report-icon">📋</div>
+          <div class="report-info">
+            <div class="report-title">February 2025 — Starting point</div>
+            <div class="report-human">Your baseline — high pain (6.5/10), very limited bending. Look how far you've come.</div>
+            <div class="report-meta">Initial assessment · 12 Feb 2025</div>
+          </div>
+          <button class="dl-btn">⬇ PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ APPOINTMENTS ══ -->
+    <div class="page" id="page-appointments">
+      <div class="page-head">
+        <div class="page-title">Appointments</div>
+        <div class="page-sub">Sessions with Dr. Priya Kapoor · Stance Health Clinic</div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-primary" onclick="bookPatientSession()">+ Book session</button>
+          <button class="btn btn-ghost">Sync calendar</button>
+        </div>
+      </div>
+
+      <div class="next-hero gap-b">
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.09em;opacity:.7;margin-bottom:4px">Next session</div>
+          <div class="next-big">Wed, 14 May</div>
+        </div>
+        <div class="next-divider"></div>
+        <div class="next-info" style="flex:1">
+          <div class="next-label">Assessment + check-in</div>
+          <div class="next-title">Dr. Priya Kapoor · 45 min</div>
+          <div class="next-meta">10:30 AM · Stance Health Clinic, Bandra</div>
+          <div class="next-actions">
+            <span class="tag tag-muted" style="background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.2)">7 days away</span>
+            <span class="tag tag-muted" style="background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.2)">Week 15 assessment</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card gap-b">
+        <div class="card-title">Upcoming</div>
+        <div class="appt-item">
+          <div class="appt-cal"><div class="appt-day">14</div><div class="appt-mo">May</div></div>
+          <div class="appt-info">
+            <div class="appt-title">Assessment + check-in</div>
+            <div class="appt-meta">Dr. Priya Kapoor · 10:30 AM · 45 min</div>
+            <div class="appt-tags"><span class="tag tag-green">Confirmed</span><span class="tag tag-muted">Week 15 review</span></div>
+          </div>
+        </div>
+        <div class="appt-item" style="border-bottom:none">
+          <div class="appt-cal"><div class="appt-day">11</div><div class="appt-mo">Jun</div></div>
+          <div class="appt-info">
+            <div class="appt-title">Month 4 milestone evaluation</div>
+            <div class="appt-meta">Dr. Priya Kapoor · 10:00 AM · 60 min</div>
+            <div class="appt-tags"><span class="tag tag-amber">Confirm pending</span><span class="tag tag-muted">Full goals review</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Past sessions</div>
+        <div class="appt-item past">
+          <div class="appt-cal"><div class="appt-day">30</div><div class="appt-mo">Apr</div></div>
+          <div class="appt-info">
+            <div class="appt-title">Week 13 check-in</div>
+            <div class="appt-meta">Dr. Priya Kapoor · 45 min</div>
+            <div class="appt-tags"><span class="tag tag-green">Attended</span><span class="tag tag-muted">Notes available</span></div>
+          </div>
+        </div>
+        <div class="appt-item past">
+          <div class="appt-cal"><div class="appt-day">9</div><div class="appt-mo">Apr</div></div>
+          <div class="appt-info">
+            <div class="appt-title">Month 3 evaluation</div>
+            <div class="appt-meta">Dr. Priya Kapoor · 60 min</div>
+            <div class="appt-tags"><span class="tag tag-green">Attended</span><span class="tag tag-muted">Report linked</span></div>
+          </div>
+        </div>
+        <div class="appt-item past" style="border-bottom:none">
+          <div class="appt-cal"><div class="appt-day">12</div><div class="appt-mo">Feb</div></div>
+          <div class="appt-info">
+            <div class="appt-title">Initial assessment</div>
+            <div class="appt-meta">Dr. Priya Kapoor · 90 min · Full baseline</div>
+            <div class="appt-tags"><span class="tag tag-green">Attended</span><span class="tag tag-muted">Baseline report</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STAY PAIN-FREE (relapse prevention) — fixes Mistake 11 ══ -->
+    <div class="page" id="page-prevent">
+      <div class="page-head">
+        <div class="page-title">Stay Pain-Free</div>
+        <div class="page-sub">How to avoid your back pain coming back after recovery</div>
+      </div>
+
+      <div class="reassurance" style="margin-bottom:14px">
+        <div class="reassurance-icon">🛡</div>
+        <div class="reassurance-text">
+          <strong>Most back pain returns because of habits, not injury.</strong>
+          The good news: it's almost entirely preventable. Here's what Dr. Kapoor recommends for desk workers and gym users like you.
+        </div>
+      </div>
+
+      <div class="card gap-b">
+        <div class="card-title">What usually causes flare-ups</div>
+        <div class="relapse-item">
+          <div class="relapse-num">1</div>
+          <div class="relapse-body">
+            <strong>Long unbroken sitting</strong>
+            <span>Sitting for 2+ hours without moving puts 3× your body weight on your lower disc. Set a 90-min movement reminder.</span>
+          </div>
+        </div>
+        <div class="relapse-item">
+          <div class="relapse-num">2</div>
+          <div class="relapse-body">
+            <strong>Stopping your core exercises after "feeling better"</strong>
+            <span>Pain going away doesn't mean you're healed — it means the exercises are working. Keep doing them 3× per week even when pain-free.</span>
+          </div>
+        </div>
+        <div class="relapse-item">
+          <div class="relapse-num">3</div>
+          <div class="relapse-body">
+            <strong>Sudden return to heavy lifting</strong>
+            <span>The most common gym injury. Always get Dr. Kapoor's clearance before returning to deadlifts, squats, or overhead presses.</span>
+          </div>
+        </div>
+        <div class="relapse-item">
+          <div class="relapse-num">4</div>
+          <div class="relapse-body">
+            <strong>High stress periods</strong>
+            <span>Stress causes muscle guarding that loads your spine. Keep the morning mobility routine especially during stressful weeks.</span>
+          </div>
+        </div>
+        <div class="relapse-item">
+          <div class="relapse-num">5</div>
+          <div class="relapse-body">
+            <strong>Poor sleep position</strong>
+            <span>Sleeping on your stomach strains your lower back. Side-sleeping with a pillow between your knees is ideal for your condition.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card gap-b">
+        <div class="card-title">Your long-term maintenance plan (after Week 24)</div>
+        <div class="relapse-item">
+          <div class="relapse-num">✓</div>
+          <div class="relapse-body">
+            <strong>3× core exercises per week (for life)</strong>
+            <span>15 minutes, 3 days a week keeps your back supported. This is your insurance policy.</span>
+          </div>
+        </div>
+        <div class="relapse-item">
+          <div class="relapse-num">✓</div>
+          <div class="relapse-body">
+            <strong>Movement breaks every 90 minutes at your desk</strong>
+            <span>Just stand, walk for 2 minutes. Your lower back will thank you.</span>
+          </div>
+        </div>
+        <div class="relapse-item">
+          <div class="relapse-num">✓</div>
+          <div class="relapse-body">
+            <strong>Annual check-in with Dr. Kapoor</strong>
+            <span>Even when pain-free. Catches any early deterioration before it becomes a problem.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="doc-note">
+        <div class="doc-header">
+          <div class="doc-avatar">PK</div>
+          <div>
+            <div class="doc-name">Dr. Priya Kapoor</div>
+            <div class="doc-role">Your physiotherapist</div>
+          </div>
+        </div>
+        <div class="doc-body">"The patients I see returning with back pain 2 years later almost always stopped their exercises because they 'felt fine'. The exercises aren't just for recovery — they're what keeps you pain-free. Make the core work a permanent part of your routine, and I'd bet on you staying gym-active well into your 50s."</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══ FLARE-UP PROTOCOL MODAL — fixes Mistake 7 ══ -->
+<div class="modal-overlay" id="flareModal" onclick="closeFlareOutside(event)">
+  <div class="modal">
+    <div class="modal-title">Having a flare-up?</div>
+    <div class="modal-sub">What's happening right now?</div>
+
+    <div class="flare-option" onclick="showFlareAnswer('normal')">
+      <div class="flare-option-icon">😣</div>
+      <div class="flare-option-text">
+        <strong>Pain came back after exercise</strong>
+        <span>Felt fine, then got sore after my session</span>
+      </div>
+    </div>
+    <div id="ans-normal" class="flare-answer">
+      <strong>✅ This is normal and expected.</strong>
+      Temporary soreness after exercise (1–2 days) is part of the recovery process — it means your muscles are being worked. <strong>Continue your programme.</strong> Apply a heat pack for 15 min, avoid heavy lifting today. If it persists beyond 3 days, contact Dr. Kapoor.
+    </div>
+
+    <div class="flare-option" onclick="showFlareAnswer('sharp')">
+      <div class="flare-option-icon">⚡</div>
+      <div class="flare-option-text">
+        <strong>Sharp or shooting pain down my leg</strong>
+        <span>Pain going into my leg or foot</span>
+      </div>
+    </div>
+    <div id="ans-sharp" class="flare-answer coral">
+      <strong>⚠️ Stop all exercise and contact Dr. Kapoor today.</strong>
+      Leg or foot pain (radiating pain) can indicate nerve pressure that needs clinical assessment. <strong>Do not continue your exercise programme</strong> until cleared. Call Stance Health at your earliest opportunity.
+    </div>
+
+    <div class="flare-option" onclick="showFlareAnswer('sitting')">
+      <div class="flare-option-icon">🪑</div>
+      <div class="flare-option-text">
+        <strong>Pain after long sitting at work</strong>
+        <span>Got stiff after a long day at my desk</span>
+      </div>
+    </div>
+    <div id="ans-sitting" class="flare-answer">
+      <strong>✅ Postural stiffness — very common, not dangerous.</strong>
+      Stand up, do 5 minutes of gentle walking, then your hip flexor stretch. Set a reminder to move every 90 min. This is a posture issue, not a structural one. Resume your exercises tomorrow as normal.
+    </div>
+
+    <div class="flare-option" onclick="showFlareAnswer('scared')">
+      <div class="flare-option-icon">😰</div>
+      <div class="flare-option-text">
+        <strong>I'm scared the pain is coming back for good</strong>
+        <span>Feeling anxious about setback</span>
+      </div>
+    </div>
+    <div id="ans-scared" class="flare-answer">
+      <strong>✅ Recovery dips are part of the process — not a sign of failure.</strong>
+      Almost every patient at Week 12–16 experiences a confidence or pain dip. It doesn't undo your progress. Your Dr. Kapoor has reviewed your data and sees no structural deterioration. You are still on track. If the anxiety persists, <strong>message Dr. Kapoor directly</strong> — she'd rather you reach out than worry alone.
+    </div>
+
+    <button class="modal-close" onclick="closeFlare()">Close</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://xentxpttnrgtiqqrbgom.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbnR4cHR0bnJndGlxcXJiZ29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNDY0MTcsImV4cCI6MjA5MzcyMjQxN30.8pacFf-OZvtfvCFIslx-7InhSmk9tFbZzoydPY-Lwzs';
+const supabaseClient = window.supabase && !SUPABASE_ANON_KEY.includes('PASTE_')
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+let currentPatientUser = null;
+
+function setAuthStatus(message) {
+  const status = document.getElementById('auth-status');
+  if (status) status.textContent = message;
+}
+
+function requireSupabase() {
+  if (supabaseClient) return true;
+  setAuthStatus('Add anon key');
+  alert('Add your Supabase anon key in this file to enable Auth and live DB calls.');
+  return false;
+}
+
+function getAuthFields() {
+  return {
+    email: document.getElementById('auth-email')?.value.trim(),
+    password: document.getElementById('auth-password')?.value
+  };
+}
+
+async function signUpPatient() {
+  if (!requireSupabase()) return;
+  const { email, password } = getAuthFields();
+  if (!email || !password) { setAuthStatus('Enter email/pass'); return; }
+  const { data, error } = await supabaseClient.auth.signUp({ email, password });
+  if (error) { setAuthStatus(error.message); return; }
+  currentPatientUser = data.user;
+  setAuthStatus(data.session ? 'Signed up' : 'Check email');
+  await upsertPatientUser(data.user || { email });
+}
+
+async function signInPatient() {
+  if (!requireSupabase()) return;
+  const { email, password } = getAuthFields();
+  if (!email || !password) { setAuthStatus('Enter email/pass'); return; }
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) { setAuthStatus(error.message); return; }
+  currentPatientUser = data.user;
+  setAuthStatus('Signed in');
+  await loadPatientProfile();
+}
+
+async function signOutPatient() {
+  if (!requireSupabase()) return;
+  await supabaseClient.auth.signOut();
+  currentPatientUser = null;
+  setAuthStatus('Signed out');
+}
+
+async function upsertPatientUser(user) {
+  if (!user?.id) return;
+  const { error } = await supabaseClient.from('patients').upsert({
+    user_id: user.id,
+    email: user.email,
+    full_name: document.querySelector('.p-name')?.textContent.trim() || null,
+    current_status: 'on-track',
+    risk_level: 'stable'
+  }, { onConflict: 'user_id' });
+  if (error) console.error('Patient upsert failed', error);
+}
+
+async function loadPatientProfile() {
+  if (!supabaseClient || !currentPatientUser) return;
+  const { data, error } = await supabaseClient
+    .from('patients')
+    .select('*')
+    .or(`user_id.eq.${currentPatientUser.id},email.eq.${currentPatientUser.email}`)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error('Patient profile load failed', error);
+    return;
+  }
+  if (!data) return;
+  const name = data.full_name || data.name || [data.first_name, data.last_name].filter(Boolean).join(' ') || currentPatientUser.email;
+  document.querySelectorAll('.p-name').forEach(el => el.textContent = name);
+  document.querySelectorAll('.avatar-sm,.p-avatar').forEach(el => {
+    el.textContent = name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+  });
+  const subtitle = data.primary_concern || data.condition || 'Stance Health programme';
+  const sub = document.querySelector('.p-sub');
+  if (sub) sub.textContent = subtitle;
+}
+
+async function bookPatientSession() {
+  if (!requireSupabase()) return;
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  currentPatientUser = sessionData.session?.user || currentPatientUser;
+  if (!currentPatientUser) {
+    setAuthStatus('Log in first');
+    alert('Please log in or sign up before booking a session.');
+    return;
+  }
+  const appointmentPayload = {
+    user_id: currentPatientUser.id,
+    patient_email: currentPatientUser.email,
+    patient_name: document.querySelector('.p-name')?.textContent.trim() || null,
+    program: 'Patient portal booking',
+    appointment_type: 'In-Clinic Visit',
+    appointment_date: '2026-05-14',
+    appointment_time: '10:30 AM',
+    physiotherapist: 'Dr. Priya Kapoor',
+    status: 'pending'
+  };
+  const { error } = await supabaseClient.from('appointments').insert(appointmentPayload);
+  if (error) {
+    console.error('Appointment insert failed', error);
+    alert('Supabase appointment error: ' + error.message);
+    return;
+  }
+  alert('Session request saved to Supabase.');
+}
+
+async function hydrateAuth() {
+  if (!supabaseClient) return;
+  const { data } = await supabaseClient.auth.getSession();
+  currentPatientUser = data.session?.user || null;
+  setAuthStatus(currentPatientUser ? 'Signed in' : 'Not signed in');
+  if (currentPatientUser) await loadPatientProfile();
+  supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+    currentPatientUser = session?.user || null;
+    setAuthStatus(currentPatientUser ? 'Signed in' : 'Not signed in');
+    if (currentPatientUser) await loadPatientProfile();
+  });
+}
+
+hydrateAuth();
+/* Navigation */
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const nav = document.getElementById('nav-' + id);
+  if (nav) nav.classList.add('active');
+  document.querySelector('.main').scrollTop = 0;
+}
+
+/* Checkbox */
+function toggleCheck(cbId, lblId) {
+  const cb = document.getElementById(cbId);
+  const lbl = document.getElementById(lblId);
+  const done = cb.classList.toggle('checked');
+  if (lbl) { done ? lbl.classList.add('done') : lbl.classList.remove('done'); }
+}
+
+/* Flare-up modal */
+function openFlare() {
+  document.getElementById('flareModal').classList.add('open');
+  // Reset answers
+  document.querySelectorAll('.flare-answer').forEach(a => a.style.display = 'none');
+}
+function closeFlare() {
+  document.getElementById('flareModal').classList.remove('open');
+}
+function closeFlareOutside(e) {
+  if (e.target === document.getElementById('flareModal')) closeFlare();
+}
+function showFlareAnswer(type) {
+  // Hide all, show the selected one
+  document.querySelectorAll('.flare-answer').forEach(a => a.style.display = 'none');
+  const ans = document.getElementById('ans-' + type);
+  if (ans) ans.style.display = 'block';
+}
+
+/* Build chart */
+const data = [38, 55, 61, 72, 65, 52, 58, 63, 70, 68];
+const weeks = ['W5','W6','W7','W8','W9','W10','W11','W12','W13','W14'];
+const maxVal = Math.max(...data);
+const chartEl = document.getElementById('main-chart');
+const lblsEl = document.getElementById('main-labels');
+if (chartEl) {
+  data.forEach((v, i) => {
+    const b = document.createElement('div');
+    b.className = 'bar' + (i === 9 ? ' hi' : '') + (i === 5 ? ' lo' : '');
+    b.style.height = Math.round(v / maxVal * 72) + 'px';
+    b.title = weeks[i] + ': ' + v + '%';
+    chartEl.appendChild(b);
+    const l = document.createElement('div');
+    l.textContent = weeks[i];
+    lblsEl.appendChild(l);
+  });
+}
+</script>
+</body>
+</html>

@@ -313,29 +313,82 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 @media(max-width:600px){
   .g2{grid-template-columns:1fr}.g3{grid-template-columns:1fr}
 }
+
+/* ── AUTH GATE ── */
+#auth-gate{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--sans);
+}
+.ag-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:2.5rem 2rem;
+  width:100%;max-width:400px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.08);
+}
+.ag-logo{
+  font-family:var(--lora);font-size:22px;font-weight:600;
+  color:var(--green);font-style:italic;text-align:center;margin-bottom:4px;
+}
+.ag-sub{font-size:13px;color:var(--text3);text-align:center;margin-bottom:1.75rem}
+.ag-tabs{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:1.5rem}
+.ag-tab{flex:1;padding:9px;font-size:13px;font-weight:500;background:transparent;border:none;cursor:pointer;color:var(--text2);font-family:var(--sans);transition:all .18s}
+.ag-tab.active{background:var(--green);color:white}
+.ag-field{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text);font-family:var(--sans);margin-bottom:10px;outline:none;box-sizing:border-box}
+.ag-field:focus{border-color:var(--green-mid);background:var(--surface)}
+.ag-btn{width:100%;background:var(--green);color:white;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:500;font-family:var(--sans);cursor:pointer;margin-top:4px;transition:background .18s}
+.ag-btn:hover{background:var(--green-mid)}
+.ag-err{font-size:12px;color:var(--coral);margin-top:8px;text-align:center;min-height:18px}
+.ag-note{font-size:11px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.5}
+
+/* empty state for new users */
+.empty-state{text-align:center;padding:3rem 1.5rem;color:var(--text3)}
+.empty-state .es-icon{font-size:2.5rem;margin-bottom:12px}
+.empty-state .es-title{font-family:var(--lora);font-size:18px;color:var(--text2);font-style:italic;margin-bottom:8px}
+.empty-state .es-body{font-size:13px;line-height:1.6}
 </style>
 </head>
 <body>
 
-<div class="shell">
+<!-- ═══════════════════════════════════════
+     AUTH GATE — shown until signed in
+════════════════════════════════════════ -->
+<div id="auth-gate">
+  <div class="ag-card">
+    <div class="ag-logo">Stance</div>
+    <div class="ag-sub">Your recovery portal</div>
+
+    <div class="ag-tabs">
+      <button class="ag-tab active" id="tab-login" onclick="switchAuthTab('login')">Log in</button>
+      <button class="ag-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign up</button>
+    </div>
+
+    <input class="ag-field" id="ag-email" type="email" placeholder="Email address" autocomplete="email">
+    <input class="ag-field" id="ag-password" type="password" placeholder="Password" autocomplete="current-password">
+    <div id="ag-name-wrap" style="display:none">
+      <input class="ag-field" id="ag-name" type="text" placeholder="Your full name" autocomplete="name">
+    </div>
+
+    <button class="ag-btn" id="ag-submit" onclick="agSubmit()">Log in</button>
+    <div class="ag-err" id="ag-err"></div>
+    <div class="ag-note" id="ag-note">New to Stance? Switch to <b>Sign up</b> above.</div>
+  </div>
+</div>
+
+<!-- Main app shell — hidden until signed in -->
+<div class="shell" id="app-shell" style="display:none">
 
   <!-- Topbar -->
   <header class="topbar">
     <div class="logo">Stance <span>Health Portal</span></div>
     <div class="topbar-right">
-      <div class="auth-box">
-        <input class="auth-input" id="auth-email" type="email" placeholder="Email">
-        <input class="auth-input" id="auth-password" type="password" placeholder="Password">
-        <button class="auth-btn" onclick="signInPatient()">Log in</button>
-        <button class="auth-btn secondary" onclick="signUpPatient()">Sign up</button>
-        <button class="auth-btn secondary" onclick="signOutPatient()">Log out</button>
-        <span class="auth-status" id="auth-status">Not signed in</span>
+      <!-- Only shown when signed in -->
+      <div id="topbar-signed-in" style="display:none;align-items:center;gap:10px">
+        <button class="flare-btn" onclick="openFlare()">🚨 Pain flare-up?</button>
+        <div class="avatar-sm" id="topbar-avatar">?</div>
+        <button class="auth-btn secondary" onclick="signOutPatient()" style="font-size:11px">Log out</button>
       </div>
-      <!-- Flare-up protocol button — fixes Mistake 7 -->
-      <button class="flare-btn" onclick="openFlare()">
-        🚨 Pain flare-up?
-      </button>
-      <div class="avatar-sm">RM</div>
     </div>
   </header>
 
@@ -1021,103 +1074,202 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ─────────────────────────────────────────────────────
+   SUPABASE SETUP
+───────────────────────────────────────────────────── */
 const SUPABASE_URL = 'https://xentxpttnrgtiqqrbgom.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhlbnR4cHR0bnJndGlxcXJiZ29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNDY0MTcsImV4cCI6MjA5MzcyMjQxN30.8pacFf-OZvtfvCFIslx-7InhSmk9tFbZzoydPY-Lwzs';
-const supabaseClient = window.supabase && !SUPABASE_ANON_KEY.includes('PASTE_')
+const supabaseClient = window.supabase
   ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
 let currentPatientUser = null;
 
-function setAuthStatus(message) {
-  const status = document.getElementById('auth-status');
-  if (status) status.textContent = message;
+/* ─────────────────────────────────────────────────────
+   AUTH GATE LOGIC
+───────────────────────────────────────────────────── */
+let authMode = 'login'; // 'login' | 'signup'
+
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('tab-login').classList.toggle('active', mode === 'login');
+  document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
+  document.getElementById('ag-submit').textContent = mode === 'login' ? 'Log in' : 'Create account';
+  document.getElementById('ag-note').innerHTML = mode === 'login'
+    ? 'New to Stance? Switch to <b>Sign up</b> above.'
+    : 'Already have an account? Switch to <b>Log in</b> above.';
+  document.getElementById('ag-name-wrap').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('ag-err').textContent = '';
 }
 
-function requireSupabase() {
-  if (supabaseClient) return true;
-  setAuthStatus('Add anon key');
-  alert('Add your Supabase anon key in this file to enable Auth and live DB calls.');
-  return false;
+async function agSubmit() {
+  const btn = document.getElementById('ag-submit');
+  const errEl = document.getElementById('ag-err');
+  const email = document.getElementById('ag-email').value.trim();
+  const password = document.getElementById('ag-password').value;
+  errEl.textContent = '';
+
+  if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; return; }
+  if (!supabaseClient) { errEl.textContent = 'Auth not configured. Check Supabase key.'; return; }
+
+  btn.textContent = 'Please wait…';
+  btn.disabled = true;
+
+  if (authMode === 'signup') {
+    const name = document.getElementById('ag-name').value.trim();
+    const { data, error } = await supabaseClient.auth.signUp({ email, password });
+    if (error) { errEl.textContent = error.message; btn.textContent = 'Create account'; btn.disabled = false; return; }
+    currentPatientUser = data.user;
+    if (name && data.user) {
+      await supabaseClient.from('patients').upsert({
+        user_id: data.user.id, email: data.user.email,
+        full_name: name, current_status: 'on-track', risk_level: 'stable'
+      }, { onConflict: 'user_id' });
+    }
+    if (!data.session) {
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = 'Check your email to confirm your account, then log in.';
+      switchAuthTab('login');
+      btn.textContent = 'Log in'; btn.disabled = false;
+      return;
+    }
+  } else {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (error) { errEl.textContent = error.message; btn.textContent = 'Log in'; btn.disabled = false; return; }
+    currentPatientUser = data.user;
+  }
+
+  await revealApp();
 }
 
-function getAuthFields() {
-  return {
-    email: document.getElementById('auth-email')?.value.trim(),
-    password: document.getElementById('auth-password')?.value
-  };
-}
+async function revealApp() {
+  // Hide gate, show shell
+  document.getElementById('auth-gate').style.display = 'none';
+  const shell = document.getElementById('app-shell');
+  shell.style.display = 'grid';
 
-async function signUpPatient() {
-  if (!requireSupabase()) return;
-  const { email, password } = getAuthFields();
-  if (!email || !password) { setAuthStatus('Enter email/pass'); return; }
-  const { data, error } = await supabaseClient.auth.signUp({ email, password });
-  if (error) { setAuthStatus(error.message); return; }
-  currentPatientUser = data.user;
-  setAuthStatus(data.session ? 'Signed up' : 'Check email');
-  await upsertPatientUser(data.user || { email });
-}
+  // Show topbar signed-in state
+  const tsi = document.getElementById('topbar-signed-in');
+  if (tsi) tsi.style.display = 'flex';
 
-async function signInPatient() {
-  if (!requireSupabase()) return;
-  const { email, password } = getAuthFields();
-  if (!email || !password) { setAuthStatus('Enter email/pass'); return; }
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  if (error) { setAuthStatus(error.message); return; }
-  currentPatientUser = data.user;
-  setAuthStatus('Signed in');
+  // Load real profile or show empty state
   await loadPatientProfile();
+
+  // Build chart
+  buildChart();
 }
 
 async function signOutPatient() {
-  if (!requireSupabase()) return;
-  await supabaseClient.auth.signOut();
+  if (supabaseClient) await supabaseClient.auth.signOut();
   currentPatientUser = null;
-  setAuthStatus('Signed out');
+  // Hide shell, show gate
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('topbar-signed-in').style.display = 'none';
+  document.getElementById('auth-gate').style.display = 'flex';
+  document.getElementById('ag-err').textContent = '';
+  document.getElementById('ag-err').style.color = 'var(--coral)';
+  document.getElementById('ag-email').value = '';
+  document.getElementById('ag-password').value = '';
+  switchAuthTab('login');
 }
 
-async function upsertPatientUser(user) {
-  if (!user?.id) return;
-  const { error } = await supabaseClient.from('patients').upsert({
-    user_id: user.id,
-    email: user.email,
-    full_name: document.querySelector('.p-name')?.textContent.trim() || null,
-    current_status: 'on-track',
-    risk_level: 'stable'
-  }, { onConflict: 'user_id' });
-  if (error) console.error('Patient upsert failed', error);
-}
-
+/* ─────────────────────────────────────────────────────
+   PROFILE — load or show empty state
+───────────────────────────────────────────────────── */
 async function loadPatientProfile() {
-  if (!supabaseClient || !currentPatientUser) return;
+  if (!supabaseClient || !currentPatientUser) { applyEmptyState(); return; }
+
   const { data, error } = await supabaseClient
     .from('patients')
     .select('*')
     .or(`user_id.eq.${currentPatientUser.id},email.eq.${currentPatientUser.email}`)
     .limit(1)
     .maybeSingle();
-  if (error) {
-    console.error('Patient profile load failed', error);
-    return;
-  }
-  if (!data) return;
-  const name = data.full_name || data.name || [data.first_name, data.last_name].filter(Boolean).join(' ') || currentPatientUser.email;
-  document.querySelectorAll('.p-name').forEach(el => el.textContent = name);
-  document.querySelectorAll('.avatar-sm,.p-avatar').forEach(el => {
-    el.textContent = name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
-  });
-  const subtitle = data.primary_concern || data.condition || 'Stance Health programme';
-  const sub = document.querySelector('.p-sub');
-  if (sub) sub.textContent = subtitle;
+
+  if (error) { console.error('Profile load failed', error); applyEmptyState(); return; }
+  if (!data) { applyEmptyState(); return; }
+
+  // Hydrate name
+  const name = data.full_name || data.name
+    || [data.first_name, data.last_name].filter(Boolean).join(' ')
+    || currentPatientUser.email;
+  applyProfile(name, data.primary_concern || data.condition || null);
 }
 
+function applyProfile(name, condition) {
+  const initials = name.split(/\s+/).slice(0,2).map(p => p[0]).join('').toUpperCase();
+  document.querySelectorAll('.p-name').forEach(el => el.textContent = name);
+  document.querySelectorAll('.p-avatar').forEach(el => el.textContent = initials);
+  const av = document.getElementById('topbar-avatar');
+  if (av) av.textContent = initials;
+
+  // Greet
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = name.split(' ')[0];
+  const titleEl = document.querySelector('#page-overview .page-title');
+  if (titleEl) titleEl.textContent = `${greeting}, ${firstName}.`;
+
+  if (condition) {
+    const sub = document.querySelector('.p-sub');
+    if (sub) sub.textContent = condition;
+  }
+}
+
+function applyEmptyState() {
+  // Replace today's hero with an empty/welcome state
+  const hero = document.querySelector('.today-hero');
+  if (hero) {
+    hero.innerHTML = `
+      <div class="today-eyebrow">Welcome to Stance</div>
+      <div class="today-headline">Your recovery programme hasn't started yet.</div>
+      <div class="today-sub">Your physiotherapist will set up your personalised plan. Once it's ready, your exercises and progress will appear here.</div>
+    `;
+  }
+
+  // Hide prediction banner & reassurance (they're pre-loaded data)
+  document.querySelectorAll('.prediction-banner, .reassurance').forEach(el => el.style.display = 'none');
+
+  // Sidebar — replace name with email
+  const email = currentPatientUser?.email || 'Your account';
+  document.querySelectorAll('.p-name').forEach(el => el.textContent = email);
+  document.querySelectorAll('.p-avatar').forEach(el => el.textContent = '?');
+  const sub = document.querySelector('.p-sub');
+  if (sub) sub.textContent = 'Programme not yet assigned';
+  const hh = document.querySelector('.hs-headline');
+  if (hh) hh.textContent = 'Waiting for your programme';
+  const hs = document.querySelector('.hs-sub');
+  if (hs) hs.textContent = 'Your clinician will activate your plan';
+
+  const av = document.getElementById('topbar-avatar');
+  if (av) av.textContent = '?';
+
+  // Greet generically
+  const titleEl = document.querySelector('#page-overview .page-title');
+  if (titleEl) titleEl.textContent = 'Welcome to Stance.';
+  const subEl = document.querySelector('#page-overview .page-sub');
+  if (subEl) {
+    const now = new Date();
+    subEl.textContent = now.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  }
+
+  // Empty checklist
+  const checklist = document.querySelector('.task-item');
+  if (checklist) {
+    const parent = checklist.parentElement;
+    parent.innerHTML = `<div class="empty-state">
+      <div class="es-icon">📋</div>
+      <div class="es-title">No exercises yet</div>
+      <div class="es-body">Your physiotherapist will add your daily exercises here once your programme is ready.</div>
+    </div>`;
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   SESSION BOOKING
+───────────────────────────────────────────────────── */
 async function bookPatientSession() {
-  if (!requireSupabase()) return;
-  const { data: sessionData } = await supabaseClient.auth.getSession();
-  currentPatientUser = sessionData.session?.user || currentPatientUser;
-  if (!currentPatientUser) {
-    setAuthStatus('Log in first');
-    alert('Please log in or sign up before booking a session.');
+  if (!supabaseClient || !currentPatientUser) {
+    alert('Please log in before booking a session.');
     return;
   }
   const appointmentPayload = {
@@ -1132,39 +1284,43 @@ async function bookPatientSession() {
     status: 'pending'
   };
   const { error } = await supabaseClient.from('appointments').insert(appointmentPayload);
-  if (error) {
-    console.error('Appointment insert failed', error);
-    alert('Supabase appointment error: ' + error.message);
-    return;
-  }
-  alert('Session request saved to Supabase.');
+  if (error) { alert('Booking error: ' + error.message); return; }
+  alert('Session request saved. Dr. Kapoor will confirm shortly.');
 }
 
+/* ─────────────────────────────────────────────────────
+   HYDRATE — check existing session on page load
+───────────────────────────────────────────────────── */
 async function hydrateAuth() {
-  if (!supabaseClient) return;
+  if (!supabaseClient) return; // gate stays visible, user must log in
   const { data } = await supabaseClient.auth.getSession();
-  currentPatientUser = data.session?.user || null;
-  setAuthStatus(currentPatientUser ? 'Signed in' : 'Not signed in');
-  if (currentPatientUser) await loadPatientProfile();
+  if (data.session?.user) {
+    currentPatientUser = data.session.user;
+    await revealApp();
+  }
   supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-    currentPatientUser = session?.user || null;
-    setAuthStatus(currentPatientUser ? 'Signed in' : 'Not signed in');
-    if (currentPatientUser) await loadPatientProfile();
+    if (session?.user && !currentPatientUser) {
+      currentPatientUser = session.user;
+      await revealApp();
+    }
   });
 }
 
-hydrateAuth();
-/* Navigation */
+/* ─────────────────────────────────────────────────────
+   NAVIGATION
+───────────────────────────────────────────────────── */
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
+  document.getElementById('page-' + id)?.classList.add('active');
   const nav = document.getElementById('nav-' + id);
   if (nav) nav.classList.add('active');
-  document.querySelector('.main').scrollTop = 0;
+  document.querySelector('.main')?.scrollTo(0, 0);
 }
 
-/* Checkbox */
+/* ─────────────────────────────────────────────────────
+   CHECKBOX
+───────────────────────────────────────────────────── */
 function toggleCheck(cbId, lblId) {
   const cb = document.getElementById(cbId);
   const lbl = document.getElementById(lblId);
@@ -1172,33 +1328,37 @@ function toggleCheck(cbId, lblId) {
   if (lbl) { done ? lbl.classList.add('done') : lbl.classList.remove('done'); }
 }
 
-/* Flare-up modal */
+/* ─────────────────────────────────────────────────────
+   FLARE MODAL
+───────────────────────────────────────────────────── */
 function openFlare() {
-  document.getElementById('flareModal').classList.add('open');
-  // Reset answers
+  document.getElementById('flareModal')?.classList.add('open');
   document.querySelectorAll('.flare-answer').forEach(a => a.style.display = 'none');
 }
 function closeFlare() {
-  document.getElementById('flareModal').classList.remove('open');
+  document.getElementById('flareModal')?.classList.remove('open');
 }
 function closeFlareOutside(e) {
   if (e.target === document.getElementById('flareModal')) closeFlare();
 }
 function showFlareAnswer(type) {
-  // Hide all, show the selected one
   document.querySelectorAll('.flare-answer').forEach(a => a.style.display = 'none');
   const ans = document.getElementById('ans-' + type);
   if (ans) ans.style.display = 'block';
 }
 
-/* Build chart */
-const data = [38, 55, 61, 72, 65, 52, 58, 63, 70, 68];
-const weeks = ['W5','W6','W7','W8','W9','W10','W11','W12','W13','W14'];
-const maxVal = Math.max(...data);
-const chartEl = document.getElementById('main-chart');
-const lblsEl = document.getElementById('main-labels');
-if (chartEl) {
-  data.forEach((v, i) => {
+/* ─────────────────────────────────────────────────────
+   CHART (only built after login)
+───────────────────────────────────────────────────── */
+function buildChart() {
+  const chartData = [38, 55, 61, 72, 65, 52, 58, 63, 70, 68];
+  const weeks = ['W5','W6','W7','W8','W9','W10','W11','W12','W13','W14'];
+  const maxVal = Math.max(...chartData);
+  const chartEl = document.getElementById('main-chart');
+  const lblsEl = document.getElementById('main-labels');
+  if (!chartEl) return;
+  chartEl.innerHTML = ''; lblsEl.innerHTML = '';
+  chartData.forEach((v, i) => {
     const b = document.createElement('div');
     b.className = 'bar' + (i === 9 ? ' hi' : '') + (i === 5 ? ' lo' : '');
     b.style.height = Math.round(v / maxVal * 72) + 'px';
@@ -1209,6 +1369,9 @@ if (chartEl) {
     lblsEl.appendChild(l);
   });
 }
+
+/* Boot */
+hydrateAuth();
 </script>
 </body>
 </html>

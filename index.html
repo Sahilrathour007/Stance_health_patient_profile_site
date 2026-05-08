@@ -1763,16 +1763,35 @@ async function loadAppointments() {
     const d = new Date(a.appointment_date + 'T00:00:00');
     const day = d.getDate();
     const mo = MONTHS[d.getMonth()];
-    const statusTag = a.status === 'scheduled' ? '<span class="tag tag-amber">Scheduled</span>'
-      : a.status === 'confirmed' ? '<span class="tag tag-green">Confirmed</span>'
-      : a.status === 'completed' ? '<span class="tag tag-green">Attended</span>'
-      : a.status === 'cancelled' ? '<span class="tag tag-coral">Cancelled</span>'
-      : `<span class="tag tag-muted">${a.status}</span>`;
+    const status = (a.status || 'pending').toLowerCase();
+
+    // Patient-facing status tags with clear meaning
+    const statusTag = status === 'pending'
+      ? '<span class="tag tag-amber">⏳ Awaiting Confirmation</span>'
+      : status === 'confirmed'
+      ? '<span class="tag tag-green">✅ Confirmed</span>'
+      : status === 'rescheduled'
+      ? '<span class="tag tag-blue" style="background:var(--blue-light,#E6EEF8);color:var(--blue,#1E4A8C)">🗓 Rescheduled</span>'
+      : status === 'scheduled'
+      ? '<span class="tag tag-amber">⏳ Awaiting Confirmation</span>'
+      : status === 'completed'
+      ? '<span class="tag tag-green">✔ Attended</span>'
+      : status === 'cancelled'
+      ? '<span class="tag tag-coral">Cancelled</span>'
+      : `<span class="tag tag-muted">${capitalize(status)}</span>`;
+
+    // Patient-friendly status message
+    const statusMsg = status === 'pending' || status === 'scheduled'
+      ? `<div style="font-size:11px;color:var(--text3);margin-top:5px;padding:5px 8px;background:var(--surface2,#F5F2ED);border-radius:6px">📬 Your request has been received. Your physiotherapist will confirm this shortly.</div>`
+      : status === 'rescheduled'
+      ? `<div style="font-size:11px;color:#1E4A8C;margin-top:5px;padding:5px 8px;background:#E6EEF8;border-radius:6px">🗓 Your appointment has been moved to a new time. Please check the date above.</div>`
+      : '';
+
     const typeLabel = a.type === 'initial' ? 'Initial Assessment'
       : a.type === 'urgent' ? 'Urgent Appointment'
       : a.type === 'discharge' ? 'Discharge Review'
       : 'Follow-up session';
-    const notes = a.notes ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">${a.notes.split('\n')[0]}</div>` : '';
+    const notes = a.doctor_note ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">💬 ${a.doctor_note}</div>` : (a.notes ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">${a.notes.split('\n')[0]}</div>` : '');
     return `
       <div class="appt-item${isPast ? ' past' : ''}">
         <div class="appt-cal"><div class="appt-day">${day}</div><div class="appt-mo">${mo}</div></div>
@@ -1780,6 +1799,7 @@ async function loadAppointments() {
           <div class="appt-title">${typeLabel}</div>
           <div class="appt-meta">${a.appointment_time || 'Time TBC'} · ${a.duration_minutes || 30} min</div>
           <div class="appt-tags">${statusTag}</div>
+          ${statusMsg}
           ${notes}
         </div>
       </div>`;
@@ -1860,7 +1880,8 @@ async function bookPatientSession() {
     appointment_date: appointmentDate,
     appointment_time: '10:00',
     type: 'follow_up',
-    notes: 'Patient portal booking request'
+    status: 'pending',
+    notes: 'Patient portal booking request — awaiting doctor confirmation'
   };
   try {
     await apiRequest('/api/appointments', {
@@ -1877,6 +1898,8 @@ async function bookPatientSession() {
 /* ─────────────────────────────────────────────────────
    HYDRATE — check existing session on page load
 ───────────────────────────────────────────────────── */
+function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
+
 async function hydrateAuth() {
   if (!supabaseClient) return; // gate stays visible, user must log in
 

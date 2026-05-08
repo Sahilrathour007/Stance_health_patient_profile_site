@@ -362,12 +362,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
     <div class="ag-tabs">
       <button class="ag-tab active" id="tab-login" onclick="switchAuthTab('login')">Log in</button>
       <button class="ag-tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign up</button>
+      <button class="ag-tab" id="tab-magic" onclick="switchAuthTab('magic')">Magic link</button>
     </div>
 
     <input class="ag-field" id="ag-email" type="email" placeholder="Email address" autocomplete="email">
     <input class="ag-field" id="ag-password" type="password" placeholder="Password" autocomplete="current-password">
     <div id="ag-name-wrap" style="display:none">
       <input class="ag-field" id="ag-name" type="text" placeholder="Your full name" autocomplete="name">
+    </div>
+    <div id="ag-magic-note" style="display:none;font-size:12px;color:var(--text2);background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:4px;line-height:1.5">
+      If you signed up via the Stance onboarding form, use this. Enter your email and we'll send a one-click login link — no password needed.
     </div>
 
     <button class="ag-btn" id="ag-submit" onclick="agSubmit()">Log in</button>
@@ -1130,11 +1134,27 @@ function switchAuthTab(mode) {
   authMode = mode;
   document.getElementById('tab-login').classList.toggle('active', mode === 'login');
   document.getElementById('tab-signup').classList.toggle('active', mode === 'signup');
-  document.getElementById('ag-submit').textContent = mode === 'login' ? 'Log in' : 'Create account';
-  document.getElementById('ag-note').innerHTML = mode === 'login'
-    ? 'New to Stance? Switch to <b>Sign up</b> above.'
-    : 'Already have an account? Switch to <b>Log in</b> above.';
-  document.getElementById('ag-name-wrap').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('tab-magic').classList.toggle('active', mode === 'magic');
+
+  const passwordField = document.getElementById('ag-password');
+  const magicNote = document.getElementById('ag-magic-note');
+  const nameWrap = document.getElementById('ag-name-wrap');
+
+  if (mode === 'magic') {
+    document.getElementById('ag-submit').textContent = 'Send login link';
+    document.getElementById('ag-note').innerHTML = 'Signed up via the Stance onboarding form? Use this to get instant access.';
+    if (passwordField) passwordField.style.display = 'none';
+    if (magicNote) magicNote.style.display = 'block';
+    if (nameWrap) nameWrap.style.display = 'none';
+  } else {
+    if (passwordField) passwordField.style.display = 'block';
+    if (magicNote) magicNote.style.display = 'none';
+    document.getElementById('ag-submit').textContent = mode === 'login' ? 'Log in' : 'Create account';
+    document.getElementById('ag-note').innerHTML = mode === 'login'
+      ? 'New to Stance? Switch to <b>Sign up</b> above.'
+      : 'Already have an account? Switch to <b>Log in</b> above.';
+    if (nameWrap) nameWrap.style.display = mode === 'signup' ? 'block' : 'none';
+  }
   document.getElementById('ag-err').textContent = '';
 }
 
@@ -1144,14 +1164,26 @@ async function agSubmit() {
   const email = document.getElementById('ag-email').value.trim();
   const password = document.getElementById('ag-password').value;
   errEl.textContent = '';
+  errEl.style.color = 'var(--coral)';
 
-  if (!email || !password) { errEl.textContent = 'Please enter your email and password.'; return; }
+  if (!email) { errEl.textContent = 'Please enter your email address.'; return; }
+  if (authMode !== 'magic' && !password) { errEl.textContent = 'Please enter your password.'; return; }
   if (!supabaseClient) { errEl.textContent = 'Auth not configured. Check Supabase key.'; return; }
 
   btn.textContent = 'Please wait...';
   btn.disabled = true;
 
   try {
+    // Magic link flow — send OTP, don't need password
+    if (authMode === 'magic') {
+      const { error } = await supabaseClient.auth.signInWithOtp({ email });
+      if (error) throw new Error(error.message);
+      errEl.style.color = 'var(--green)';
+      errEl.textContent = '✅ Login link sent! Check your email and click the link to access your portal.';
+      btn.textContent = 'Link sent';
+      return;
+    }
+
     const data = authMode === 'signup'
       ? await apiRequest('/api/auth/register', {
           method: 'POST',
@@ -1170,8 +1202,9 @@ async function agSubmit() {
     await applyBackendSession(data.session);
     currentPatientUser = data.session?.user || data.user;
   } catch (err) {
+    errEl.style.color = 'var(--coral)';
     errEl.textContent = err.message;
-    btn.textContent = authMode === 'login' ? 'Log in' : 'Create account';
+    btn.textContent = authMode === 'login' ? 'Log in' : authMode === 'magic' ? 'Send login link' : 'Create account';
     btn.disabled = false;
     return;
   }
@@ -1704,6 +1737,13 @@ async function loadAppointments() {
     appointments = data.appointments || [];
   } catch (e) {
     console.error('Appointments load failed', e);
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (noDataEl) {
+      noDataEl.style.display = 'block';
+      const bodyEl = noDataEl.querySelector('.es-body');
+      if (bodyEl) bodyEl.textContent = 'Could not load appointments: ' + (e.message || 'Unknown error') + '. Please refresh or contact support.';
+    }
+    return;
   }
 
   if (loadingEl) loadingEl.style.display = 'none';
@@ -1839,6 +1879,20 @@ async function bookPatientSession() {
 ───────────────────────────────────────────────────── */
 async function hydrateAuth() {
   if (!supabaseClient) return; // gate stays visible, user must log in
+
+  // Handle magic link / OTP token in URL (patient clicked email link)
+  const hash = window.location.hash;
+  if (hash && (hash.includes('access_token') || hash.includes('type=magiclink') || hash.includes('type=recovery'))) {
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (!error && data.session?.user) {
+      currentPatientUser = data.session.user;
+      // Clean the URL so tokens don't persist in browser history
+      window.history.replaceState(null, '', window.location.pathname);
+      await revealApp();
+      return;
+    }
+  }
+
   const { data } = await supabaseClient.auth.getSession();
   if (data.session?.user) {
     currentPatientUser = data.session.user;

@@ -430,11 +430,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
       </button>
     </div>
 
-    <div class="sidebar-footer">
+    <div class="sidebar-footer" id="sidebar-doctor-section" style="display:none">
       <div class="sf-label">Your clinician</div>
       <div class="sf-doc">
-        <div class="doc-avatar-sm">PK</div>
-        <div class="sf-doc-name">Dr. Priya Kapoor</div>
+        <div class="doc-avatar-sm" id="sidebar-doc-initials">–</div>
+        <div class="sf-doc-name" id="sidebar-doc-name">–</div>
       </div>
     </div>
   </aside>
@@ -459,7 +459,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
         <div class="today-sub">Morning mobility done ✓ &nbsp;·&nbsp; Core stability + resistance bands still to go &nbsp;·&nbsp; No pain this week — great.</div>
         <div class="today-actions">
           <button class="btn btn-white" onclick="showPage('tasks')">See my exercises →</button>
-          <button class="btn btn-outline-white" onclick="showPage('appointments')">Next session: May 14</button>
+          <button class="btn btn-outline-white" onclick="showPage('appointments')" id="today-next-session-btn" style="display:none">–</button>
         </div>
       </div>
 
@@ -662,7 +662,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
           <div class="kv"><span class="kv-k">Exercises done</span><span class="kv-v green">5 of 8</span></div>
           <div class="kv"><span class="kv-k">Pain episodes</span><span class="kv-v green">0 this month 🎉</span></div>
           <div class="kv"><span class="kv-k">Weeks active</span><span class="kv-v green">14 in a row</span></div>
-          <div class="kv"><span class="kv-k">Next session</span><span class="kv-v">May 14 with Dr. Kapoor</span></div>
+          <div class="kv"><span class="kv-k">Next session</span><span class="kv-v" id="tasks-next-session">–</span></div>
         </div>
       </div>
     </div>
@@ -1191,9 +1191,6 @@ async function revealApp() {
 
   // Load real profile or show empty state
   await loadPatientProfile();
-
-  // Build chart
-  buildChart();
 }
 
 async function signOutPatient() {
@@ -1227,11 +1224,15 @@ async function loadPatientProfile() {
   if (!data?.patient) { applyEmptyState(); return; }
   currentPatientRecord = data.patient;
 
-  const hasPlan = !!(data.treatmentPlan || (data.patient.status === 'active'));
+  const exercises = data.treatmentPlan?.exercises || [];
+  const hasPlan = exercises.length > 0 && data.treatmentPlan?.status === 'active';
 
   // Hydrate name
   const name = data.user?.name || currentPatientUser.email;
   applyProfile(name, data.patient.pain_location || data.patient.cohort || null, hasPlan, data);
+
+  // Build chart with real check-in data
+  buildChart(data.checkIns || []);
 
   // Load appointments dynamically
   await loadAppointments();
@@ -1287,7 +1288,21 @@ function applyProfile(name, condition, hasPlan, data) {
   if (reportsEmpty) reportsEmpty.style.display = hasPlan ? 'none' : 'block';
   if (reportsAssigned) reportsAssigned.style.display = hasPlan ? 'block' : 'none';
 
-  // Exercise badge — count unchecked tasks from treatment plan exercises
+  // Sidebar doctor section — show only if doctor info is available
+  const doctorSection = document.getElementById('sidebar-doctor-section');
+  const doctorInitialsEl = document.getElementById('sidebar-doc-initials');
+  const doctorNameEl = document.getElementById('sidebar-doc-name');
+  if (doctorSection) {
+    const doctorName = data?.doctor?.name || data?.patient?.doctor_name || null;
+    if (doctorName) {
+      const docInitials = doctorName.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+      if (doctorInitialsEl) doctorInitialsEl.textContent = docInitials;
+      if (doctorNameEl) doctorNameEl.textContent = doctorName;
+      doctorSection.style.display = 'block';
+    } else {
+      doctorSection.style.display = 'none';
+    }
+  }
   const exercises = data?.treatmentPlan?.exercises || [];
   const badge = document.getElementById('exercises-badge');
   if (badge) {
@@ -1443,7 +1458,19 @@ async function loadAppointments() {
     if (upcomingEmpty) upcomingEmpty.style.display = 'block';
   }
 
-  // Past list
+  // Populate today-hero next session button and tasks-page kv
+  const nextSessionBtn = document.getElementById('today-next-session-btn');
+  const tasksNextSession = document.getElementById('tasks-next-session');
+  if (upcoming.length) {
+    const next = upcoming[0];
+    const d = new Date(next.appointment_date + 'T00:00:00');
+    const label = 'Next session: ' + d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    if (nextSessionBtn) { nextSessionBtn.textContent = label; nextSessionBtn.style.display = 'inline-flex'; }
+    if (tasksNextSession) tasksNextSession.textContent = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  } else {
+    if (nextSessionBtn) nextSessionBtn.style.display = 'none';
+    if (tasksNextSession) tasksNextSession.textContent = 'None booked';
+  }
   if (pastCard) pastCard.style.display = 'block';
   const pastList = document.getElementById('past-appts-list');
   const pastEmpty = document.getElementById('past-empty');
@@ -1555,23 +1582,45 @@ function showFlareAnswer(type) {
 /* ─────────────────────────────────────────────────────
    CHART (only built after login)
 ───────────────────────────────────────────────────── */
-function buildChart() {
-  const chartData = [38, 55, 61, 72, 65, 52, 58, 63, 70, 68];
-  const weeks = ['W5','W6','W7','W8','W9','W10','W11','W12','W13','W14'];
-  const maxVal = Math.max(...chartData);
+function buildChart(checkIns) {
   const chartEl = document.getElementById('main-chart');
   const lblsEl = document.getElementById('main-labels');
   if (!chartEl) return;
-  chartEl.innerHTML = ''; lblsEl.innerHTML = '';
-  chartData.forEach((v, i) => {
+  chartEl.innerHTML = '';
+  if (lblsEl) lblsEl.innerHTML = '';
+
+  // Use real check-in completion_rate data if available
+  const dataPoints = (checkIns || [])
+    .filter(c => c.completion_rate != null)
+    .slice(0, 10)          // latest 10 already ordered DESC by API
+    .reverse();            // chart left-to-right (oldest → newest)
+
+  if (!dataPoints.length) {
+    chartEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">No check-in data yet — complete your first check-in to see your chart.</div>';
+    return;
+  }
+
+  const values = dataPoints.map(c => c.completion_rate);
+  const labels = dataPoints.map((c, i) => {
+    if (c.week_number) return 'W' + c.week_number;
+    const d = new Date(c.submitted_at);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  });
+
+  const maxVal = Math.max(...values, 1);
+  values.forEach((v, i) => {
+    const isLatest = i === values.length - 1;
+    const isLowest = v === Math.min(...values);
     const b = document.createElement('div');
-    b.className = 'bar' + (i === 9 ? ' hi' : '') + (i === 5 ? ' lo' : '');
+    b.className = 'bar' + (isLatest ? ' hi' : isLowest ? ' lo' : '');
     b.style.height = Math.round(v / maxVal * 72) + 'px';
-    b.title = weeks[i] + ': ' + v + '%';
+    b.title = (labels[i] || ('Week ' + (i + 1))) + ': ' + v + '%';
     chartEl.appendChild(b);
-    const l = document.createElement('div');
-    l.textContent = weeks[i];
-    lblsEl.appendChild(l);
+    if (lblsEl) {
+      const l = document.createElement('div');
+      l.textContent = labels[i] || '';
+      lblsEl.appendChild(l);
+    }
   });
 }
 

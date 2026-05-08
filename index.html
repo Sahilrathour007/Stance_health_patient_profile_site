@@ -1229,6 +1229,7 @@ async function loadPatientProfile() {
 
   // Hydrate name
   const name = data.user?.name || currentPatientUser.email;
+  renderPatientPortal(data, hasPlan);
   applyProfile(name, data.patient.pain_location || data.patient.cohort || null, hasPlan, data);
 
   // Build chart with real check-in data
@@ -1285,8 +1286,9 @@ function applyProfile(name, condition, hasPlan, data) {
 
   const reportsEmpty = document.getElementById('reports-empty');
   const reportsAssigned = document.getElementById('reports-assigned');
-  if (reportsEmpty) reportsEmpty.style.display = hasPlan ? 'none' : 'block';
-  if (reportsAssigned) reportsAssigned.style.display = hasPlan ? 'block' : 'none';
+  const reports = data?.reports || data?.treatmentPlan?.reports || [];
+  if (reportsEmpty) reportsEmpty.style.display = hasPlan && reports.length ? 'none' : 'block';
+  if (reportsAssigned) reportsAssigned.style.display = hasPlan && reports.length ? 'block' : 'none';
 
   // Sidebar doctor section — show only if doctor info is available
   const doctorSection = document.getElementById('sidebar-doctor-section');
@@ -1315,8 +1317,308 @@ function applyProfile(name, condition, hasPlan, data) {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[ch]));
+}
+
+function formatDate(value, options = { day: 'numeric', month: 'short', year: 'numeric' }) {
+  if (!value) return '';
+  const date = new Date(String(value).includes('T') ? value : value + 'T00:00:00');
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', options);
+}
+
+function compactExerciseName(exercise) {
+  return exercise.name || exercise.title || exercise.exercise_name || exercise.label || 'Assigned exercise';
+}
+
+function exerciseMeta(exercise) {
+  const parts = [
+    exercise.sets && exercise.reps ? `${exercise.sets} sets x ${exercise.reps} reps` : null,
+    exercise.duration || exercise.duration_minutes ? `${exercise.duration || exercise.duration_minutes} min` : null,
+    exercise.frequency
+  ].filter(Boolean);
+  return parts.join(' · ') || 'Follow your clinician instructions';
+}
+
+function renderEmptyState(icon, title, body) {
+  return `
+    <div class="empty-state" style="padding:4rem 1.5rem">
+      <div class="es-icon">${icon}</div>
+      <div class="es-title">${escapeHtml(title)}</div>
+      <div class="es-body">${escapeHtml(body)}</div>
+    </div>`;
+}
+
+function renderPatientPortal(data, hasPlan) {
+  const exercises = data?.treatmentPlan?.exercises || [];
+  renderOverview(data, hasPlan, exercises);
+  renderExercises(data, hasPlan, exercises);
+  renderProgress(data, hasPlan);
+  renderReports(data, hasPlan);
+  renderPrevent(data);
+  renderFlareCopy(data);
+}
+
+function renderOverview(data, hasPlan, exercises) {
+  const el = document.getElementById('assigned-content');
+  if (!el) return;
+  if (!hasPlan) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const pending = exercises.filter(e => !e.completed && !e.completed_at);
+  const firstThree = exercises.slice(0, 3);
+  const focus = data?.treatmentPlan?.goals?.[0] || data?.patient?.pain_location || 'your recovery';
+  el.innerHTML = `
+    <div class="today-hero">
+      <div class="today-eyebrow">Your focus today</div>
+      <div class="today-headline">${pending.length || exercises.length} exercise${(pending.length || exercises.length) === 1 ? '' : 's'} assigned</div>
+      <div class="today-sub">${escapeHtml(focus)} · Updated from your active treatment plan</div>
+      <div class="today-actions">
+        <button class="btn btn-white" onclick="showPage('tasks')">See my exercises</button>
+        <button class="btn btn-outline-white" onclick="showPage('appointments')" id="today-next-session-btn" style="display:none">-</button>
+      </div>
+    </div>
+
+    <div class="g2 gap-b">
+      <div class="card">
+        <div class="card-title">Today's checklist</div>
+        ${firstThree.map((exercise, i) => `
+          <div class="task-item">
+            <div class="checkbox${exercise.completed || exercise.completed_at ? ' checked' : ''}" id="ov-c${i}" onclick="toggleCheck('ov-c${i}','ov-t${i}')"></div>
+            <div class="task-body">
+              <div class="task-t${exercise.completed || exercise.completed_at ? ' done' : ''}" id="ov-t${i}">${escapeHtml(compactExerciseName(exercise))}</div>
+              <div class="task-why">${escapeHtml(exercise.why || exercise.purpose || exercise.instructions || '')}</div>
+              <div class="task-m">${escapeHtml(exerciseMeta(exercise))}</div>
+            </div>
+          </div>`).join('')}
+        <div class="prog-note positive" style="margin-top:10px">${exercises.length} exercise${exercises.length === 1 ? '' : 's'} in your current active plan.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Plan details</div>
+        <div class="kv"><span class="kv-k">Plan status</span><span class="kv-v green">${escapeHtml(data?.treatmentPlan?.status || 'active')}</span></div>
+        <div class="kv"><span class="kv-k">Started</span><span class="kv-v">${formatDate(data?.treatmentPlan?.start_date) || 'Not set'}</span></div>
+        <div class="kv"><span class="kv-k">Goal</span><span class="kv-v">${escapeHtml(focus)}</span></div>
+        <div class="kv"><span class="kv-k">Next session</span><span class="kv-v" id="tasks-next-session">-</span></div>
+      </div>
+    </div>`;
+}
+
+function renderExercises(data, hasPlan, exercises) {
+  const page = document.getElementById('page-tasks');
+  if (!page) return;
+  if (!hasPlan) {
+    page.innerHTML = `
+      <div class="page-head">
+        <div class="page-title">My Exercises</div>
+        <div class="page-sub">Your assigned programme will appear here</div>
+      </div>
+      ${renderEmptyState('🌱', "No exercises assigned yet", "Your physiotherapist has not activated exercise content for your plan yet.")}`;
+    return;
+  }
+
+  const goal = data?.treatmentPlan?.goals?.[0] || data?.patient?.pain_location || 'your recovery';
+  page.innerHTML = `
+    <div class="page-head">
+      <div class="page-title">My Exercises</div>
+      <div class="page-sub">${exercises.length} exercise${exercises.length === 1 ? '' : 's'} in your active plan</div>
+    </div>
+    <div class="week-focus">
+      <div class="wf-label">Current focus</div>
+      <div class="wf-text">${escapeHtml(goal)}</div>
+    </div>
+    <div class="card gap-b">
+      <div class="card-title">Assigned exercises</div>
+      ${exercises.map((exercise, i) => `
+        <div class="task-item">
+          <div class="checkbox${exercise.completed || exercise.completed_at ? ' checked' : ''}" id="tc${i}" onclick="toggleCheck('tc${i}','tt${i}')"></div>
+          <div class="task-body">
+            <div class="task-t${exercise.completed || exercise.completed_at ? ' done' : ''}" id="tt${i}">${escapeHtml(compactExerciseName(exercise))}</div>
+            <div class="task-why">${escapeHtml(exercise.why || exercise.purpose || exercise.instructions || '')}</div>
+            <div class="task-m">${escapeHtml(exerciseMeta(exercise))}</div>
+          </div>
+          <span class="task-freq">${escapeHtml(exercise.frequency || '')}</span>
+        </div>`).join('')}
+    </div>
+    <div class="g2">
+      <div class="anchor-box">
+        <div class="anchor-label">Plan notes</div>
+        <div class="anchor-text">${escapeHtml(data?.treatmentPlan?.notes || 'Follow the exercise dose exactly as assigned.')}</div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="card-title">This plan</div>
+        <div class="kv"><span class="kv-k">Exercises assigned</span><span class="kv-v green">${exercises.length}</span></div>
+        <div class="kv"><span class="kv-k">Restrictions</span><span class="kv-v">${escapeHtml((data?.treatmentPlan?.restrictions || []).join(', ') || 'None listed')}</span></div>
+        <div class="kv"><span class="kv-k">Next session</span><span class="kv-v" id="tasks-next-session">-</span></div>
+      </div>
+    </div>`;
+}
+
+function renderProgress(data, hasPlan) {
+  const el = document.getElementById('progress-assigned');
+  if (!el) return;
+  if (!hasPlan) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const checkIns = data?.checkIns || [];
+  const latest = checkIns[0] || {};
+  const completion = latest.completion_rate ?? null;
+  const pain = latest.pain_score ?? latest.pain_level ?? null;
+  const confidence = latest.confidence_score ?? latest.confidence ?? null;
+  el.innerHTML = `
+    <div class="reassurance" style="margin-bottom:14px">
+      <div class="reassurance-icon">✓</div>
+      <div class="reassurance-text">
+        <strong>${checkIns.length ? 'Latest check-in recorded.' : 'No check-ins yet.'}</strong>
+        ${checkIns.length ? `Submitted ${escapeHtml(formatDate(latest.submitted_at || latest.created_at))}.` : 'Complete a check-in to build your progress history.'}
+      </div>
+    </div>
+    <div class="card gap-b">
+      <div class="card-title">Latest signals</div>
+      <div class="signal-row">
+        <div class="sig-dot ${completion == null || completion >= 65 ? 'green' : 'amber'}"></div>
+        <div class="sig-info">
+          <div class="sig-name">Exercise completion</div>
+          <div class="sig-val">${completion == null ? 'No completion data yet' : `${completion}% from latest check-in`}</div>
+        </div>
+        <span class="sig-badge ${completion == null || completion >= 65 ? 'green' : 'amber'}">${completion == null ? 'Pending' : 'Tracked'}</span>
+      </div>
+      <div class="signal-row">
+        <div class="sig-dot ${pain == null || pain <= 3 ? 'green' : 'amber'}"></div>
+        <div class="sig-info">
+          <div class="sig-name">Pain level</div>
+          <div class="sig-val">${pain == null ? 'No pain score submitted yet' : `${pain}/10`}</div>
+        </div>
+        <span class="sig-badge ${pain == null || pain <= 3 ? 'green' : 'amber'}">${pain == null ? 'Pending' : 'Tracked'}</span>
+      </div>
+      <div class="signal-row">
+        <div class="sig-dot ${confidence == null || confidence >= 6 ? 'green' : 'amber'}"></div>
+        <div class="sig-info">
+          <div class="sig-name">Recovery confidence</div>
+          <div class="sig-val">${confidence == null ? 'No confidence score submitted yet' : `${confidence}/10`}</div>
+        </div>
+        <span class="sig-badge ${confidence == null || confidence >= 6 ? 'green' : 'amber'}">${confidence == null ? 'Pending' : 'Tracked'}</span>
+      </div>
+    </div>
+    <div class="card gap-b">
+      <div class="card-title">Exercise consistency</div>
+      <div class="chart-area" id="main-chart"></div>
+      <div class="chart-labels" id="main-labels"></div>
+      <div class="prog-note">This chart uses completion rates from your submitted check-ins.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Goals</div>
+      ${(data?.treatmentPlan?.goals || []).length
+        ? data.treatmentPlan.goals.map(goal => `<div class="milestone"><span class="milestone-icon">•</span> ${escapeHtml(goal)}</div>`).join('')
+        : '<div class="prog-note">No goals have been added to this plan yet.</div>'}
+    </div>`;
+}
+
+function renderReports(data, hasPlan) {
+  const assigned = document.getElementById('reports-assigned');
+  const empty = document.getElementById('reports-empty');
+  if (!assigned) return;
+  const reports = data?.reports || data?.treatmentPlan?.reports || [];
+  if (!hasPlan || !reports.length) {
+    assigned.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+
+  if (empty) empty.style.display = 'none';
+  const latest = reports[0];
+  assigned.innerHTML = `
+    <div class="card-title">Latest - ${escapeHtml(latest.title || formatDate(latest.generated_at || latest.created_at))}</div>
+    <div class="reassurance" style="margin-top:0;margin-bottom:14px">
+      <div class="reassurance-icon">📊</div>
+      <div class="reassurance-text">
+        <strong>${escapeHtml(latest.summary_title || 'Recovery report')}</strong>
+        ${escapeHtml(latest.summary || latest.notes || '')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Previous reports</div>
+      ${reports.map(report => `
+        <div class="report-item">
+          <div class="report-icon">📋</div>
+          <div class="report-info">
+            <div class="report-title">${escapeHtml(report.title || formatDate(report.generated_at || report.created_at))}</div>
+            <div class="report-human">${escapeHtml(report.summary || report.notes || '')}</div>
+            <div class="report-meta">${escapeHtml(formatDate(report.generated_at || report.created_at))}</div>
+          </div>
+          ${report.pdf_url ? `<a class="dl-btn" href="${escapeHtml(report.pdf_url)}" target="_blank" rel="noopener">PDF</a>` : ''}
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderPrevent(data) {
+  const page = document.getElementById('page-prevent');
+  if (!page) return;
+  const doctorName = data?.doctor?.name || 'your clinician';
+  page.innerHTML = `
+    <div class="page-head">
+      <div class="page-title">Stay Pain-Free</div>
+      <div class="page-sub">How to avoid your pain coming back after recovery</div>
+    </div>
+    <div class="reassurance" style="margin-bottom:14px">
+      <div class="reassurance-icon">🛡</div>
+      <div class="reassurance-text">
+        <strong>Most recurring pain returns because of habits, not injury.</strong>
+        These prevention habits are general guidance. Follow ${escapeHtml(doctorName)}'s specific advice when it differs.
+      </div>
+    </div>
+    <div class="card gap-b">
+      <div class="card-title">What usually causes flare-ups</div>
+      ${[
+        ['Long unbroken sitting', 'Stand, walk, and reset posture before stiffness builds up.'],
+        ['Stopping exercises after feeling better', 'Keep the maintenance dose your clinician assigned.'],
+        ['Sudden return to heavy lifting', 'Return gradually and get clinical clearance for heavy compound lifts.'],
+        ['High stress periods', 'Stress can increase muscle guarding, so keep gentle mobility in your routine.'],
+        ['Poor sleep position', 'Choose a position that keeps your spine comfortable and supported.']
+      ].map((item, i) => `
+        <div class="relapse-item">
+          <div class="relapse-num">${i + 1}</div>
+          <div class="relapse-body"><strong>${escapeHtml(item[0])}</strong><span>${escapeHtml(item[1])}</span></div>
+        </div>`).join('')}
+    </div>
+    <div class="card gap-b">
+      <div class="card-title">Long-term maintenance</div>
+      ${[
+        ['Keep your assigned maintenance exercises', 'A short routine is easier to sustain than restarting after a flare-up.'],
+        ['Move during desk work', 'Brief breaks reduce load from long static positions.'],
+        ['Book periodic reviews', 'A check-in can catch small issues before they become limiting.']
+      ].map(item => `
+        <div class="relapse-item">
+          <div class="relapse-num">✓</div>
+          <div class="relapse-body"><strong>${escapeHtml(item[0])}</strong><span>${escapeHtml(item[1])}</span></div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderFlareCopy(data) {
+  const clinician = data?.doctor?.name || 'your clinician';
+  const normal = document.getElementById('ans-normal');
+  const sharp = document.getElementById('ans-sharp');
+  const scared = document.getElementById('ans-scared');
+  if (normal) normal.innerHTML = `<strong>✓ This can be normal after exercise.</strong> Temporary soreness after exercise can be part of recovery. Continue only within your assigned limits, use gentle heat if helpful, and contact ${escapeHtml(clinician)} if it persists or worsens.`;
+  if (sharp) sharp.innerHTML = `<strong>Stop exercise and contact ${escapeHtml(clinician)} today.</strong> Sharp or radiating leg/foot pain can need clinical assessment. Do not continue your exercise programme until cleared.`;
+  if (scared) scared.innerHTML = `<strong>Recovery dips can happen.</strong> A setback does not automatically erase your progress. If anxiety or symptoms persist, message ${escapeHtml(clinician)} so your plan can be reviewed.`;
+}
+
 function applyEmptyState() {
   const email = currentPatientUser?.email || 'Your account';
+  renderPatientPortal(null, false);
 
   // Sidebar — show email, no initials
   const sidebarAvatar = document.getElementById('sidebar-avatar');

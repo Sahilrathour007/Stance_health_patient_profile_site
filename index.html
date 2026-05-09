@@ -1427,6 +1427,20 @@ function renderOverview(data, hasPlan, exercises) {
   // Restore any completions already ticked today (survives page navigation)
   _completedToday = new Set(JSON.parse(localStorage.getItem(_todayKey()) || '[]'));
 
+  // If all exercises were already ticked before this render (e.g. page reload after
+  // completing exercises), the click path is dead (wasDone guard fires). So we must
+  // auto-submit here instead. Guard with a session flag so we don't re-submit on
+  // every navigation back to Today.
+  const _alreadySubmittedKey = 'submitted_' + _todayKey();
+  if (
+    _totalExercisesToday > 0 &&
+    _completedToday.size >= _totalExercisesToday &&
+    !sessionStorage.getItem(_alreadySubmittedKey)
+  ) {
+    sessionStorage.setItem(_alreadySubmittedKey, '1');
+    _submitDailyCheckIn();
+  }
+
   el.innerHTML = `
     <div class="today-hero">
       <div class="today-eyebrow">Your focus today</div>
@@ -2000,6 +2014,7 @@ function markExerciseDone(cbId, lblId, exerciseIndex) {
 
   // When ALL exercises are ticked → auto-submit check-in & refresh progress
   if (_totalExercisesToday > 0 && _completedToday.size >= _totalExercisesToday) {
+    sessionStorage.setItem('submitted_' + _todayKey(), '1');
     _submitDailyCheckIn();
   }
 }

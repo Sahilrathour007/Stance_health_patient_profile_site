@@ -1410,6 +1410,12 @@ function renderOverview(data, hasPlan, exercises) {
   const pending = exercises.filter(e => !e.completed && !e.completed_at);
   const firstThree = exercises.slice(0, 3);
   const focus = data?.treatmentPlan?.goals?.[0] || data?.patient?.pain_location || 'your recovery';
+
+  // Track how many exercises are in today's list so markExerciseDone knows when all are done
+  _totalExercisesToday = firstThree.length;
+  // Restore any completions already ticked today (survives page navigation)
+  _completedToday = new Set(JSON.parse(localStorage.getItem(_todayKey()) || '[]'));
+
   el.innerHTML = `
     <div class="today-hero">
       <div class="today-eyebrow">Your focus today</div>
@@ -1424,15 +1430,18 @@ function renderOverview(data, hasPlan, exercises) {
     <div class="g2 gap-b">
       <div class="card">
         <div class="card-title">Today's checklist</div>
-        ${firstThree.map((exercise, i) => `
+        ${firstThree.map((exercise, i) => {
+          const isDone = exercise.completed || exercise.completed_at || _completedToday.has(i);
+          return `
           <div class="task-item">
-            <div class="checkbox${exercise.completed || exercise.completed_at ? ' checked' : ''}" id="ov-c${i}" onclick="toggleCheck('ov-c${i}','ov-t${i}')"></div>
+            <div class="checkbox${isDone ? ' checked' : ''}" id="ov-c${i}" onclick="markExerciseDone('ov-c${i}','ov-t${i}',${i})" style="cursor:${isDone ? 'default' : 'pointer'}"></div>
             <div class="task-body">
-              <div class="task-t${exercise.completed || exercise.completed_at ? ' done' : ''}" id="ov-t${i}">${escapeHtml(compactExerciseName(exercise))}</div>
+              <div class="task-t${isDone ? ' done' : ''}" id="ov-t${i}">${escapeHtml(compactExerciseName(exercise))}</div>
               <div class="task-why">${escapeHtml(exercise.why || exercise.purpose || exercise.instructions || '')}</div>
               <div class="task-m">${escapeHtml(exerciseMeta(exercise))}</div>
             </div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
         <div class="prog-note positive" style="margin-top:10px">${exercises.length} exercise${exercises.length === 1 ? '' : 's'} in your current active plan.</div>
       </div>
 
@@ -1471,11 +1480,11 @@ function renderExercises(data, hasPlan, exercises) {
     </div>
     <div class="card gap-b">
       <div class="card-title">Assigned exercises</div>
-      ${exercises.map((exercise, i) => `
+      ${exercises.map((exercise) => `
         <div class="task-item">
-          <div class="checkbox${exercise.completed || exercise.completed_at ? ' checked' : ''}" id="tc${i}" onclick="toggleCheck('tc${i}','tt${i}')"></div>
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--green-light);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🏋️</div>
           <div class="task-body">
-            <div class="task-t${exercise.completed || exercise.completed_at ? ' done' : ''}" id="tt${i}">${escapeHtml(compactExerciseName(exercise))}</div>
+            <div class="task-t">${escapeHtml(compactExerciseName(exercise))}</div>
             <div class="task-why">${escapeHtml(exercise.why || exercise.purpose || exercise.instructions || '')}</div>
             <div class="task-m">${escapeHtml(exerciseMeta(exercise))}</div>
           </div>
@@ -1945,11 +1954,81 @@ function showPage(id) {
 /* ─────────────────────────────────────────────────────
    CHECKBOX
 ───────────────────────────────────────────────────── */
-function toggleCheck(cbId, lblId) {
-  const cb = document.getElementById(cbId);
+// ── Daily exercise completion state (resets each day) ──────────────────────
+const _todayKey = () => 'done_' + new Date().toISOString().slice(0, 10);
+let _completedToday = new Set(JSON.parse(localStorage.getItem(_todayKey()) || '[]'));
+let _totalExercisesToday = 0; // set by renderOverview
+
+function markExerciseDone(cbId, lblId, exerciseIndex) {
+  const cb  = document.getElementById(cbId);
   const lbl = document.getElementById(lblId);
-  const done = cb.classList.toggle('checked');
-  if (lbl) { done ? lbl.classList.add('done') : lbl.classList.remove('done'); }
+  if (!cb) return;
+
+  const wasDone = cb.classList.contains('checked');
+  if (wasDone) return; // already marked — no toggling back
+
+  cb.classList.add('checked');
+  if (lbl) lbl.classList.add('done');
+
+  _completedToday.add(exerciseIndex);
+  localStorage.setItem(_todayKey(), JSON.stringify([..._completedToday]));
+
+  // Update badge in nav
+  const badge = document.getElementById('exercises-badge');
+  const remaining = Math.max(0, _totalExercisesToday - _completedToday.size);
+  if (badge) {
+    badge.textContent = remaining + ' left';
+    badge.style.display = remaining > 0 ? '' : 'none';
+  }
+
+  // When ALL exercises are ticked → auto-submit check-in & refresh progress
+  if (_totalExercisesToday > 0 && _completedToday.size >= _totalExercisesToday) {
+    _submitDailyCheckIn();
+  }
+}
+
+async function _submitDailyCheckIn() {
+  if (!currentPatientRecord?.id || !supabaseClient) return;
+  try {
+    // Write a check-in row directly to Supabase (anon key, RLS allows patient inserts)
+    const today = new Date().toISOString().slice(0, 10);
+    const { error } = await supabaseClient.from('check_ins').insert({
+      patient_id:       currentPatientRecord.id,
+      completion_rate:  100,
+      pain_score:       null,   // patient can fill in later via a proper check-in form
+      confidence_score: null,
+      submitted_at:     new Date().toISOString(),
+      notes:            `Daily exercises completed (${today})`
+    });
+    if (error) { console.warn('Check-in write failed:', error.message); return; }
+
+    // Show a non-intrusive toast
+    _showToast('✅ All done for today! Progress updated.');
+
+    // Reload profile data so Progress tab reflects the new check-in immediately
+    await loadPatientProfile();
+  } catch (e) {
+    console.warn('Check-in submission error:', e);
+  }
+}
+
+function _showToast(msg) {
+  let t = document.getElementById('_toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = '_toast';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:13px;font-weight:500;padding:10px 20px;border-radius:24px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.15);transition:opacity .4s';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+}
+
+// Legacy alias — keep for any static HTML checkboxes that still call toggleCheck
+function toggleCheck(cbId, lblId) {
+  markExerciseDone(cbId, lblId, cbId);
 }
 
 /* ─────────────────────────────────────────────────────

@@ -1257,6 +1257,17 @@ async function loadPatientProfile() {
   if (!data?.patient) { applyEmptyState(); return; }
   currentPatientRecord = data.patient;
 
+  // Fetch patient_metrics directly — this is the patient's home progress log
+  // (exercise completion, pain, confidence), separate from clinic check-ins.
+  const { data: metricsRows } = await supabaseClient
+    .from('patient_metrics')
+    .select('*')
+    .eq('patient_id', data.patient.id)
+    .order('week_number', { ascending: false })
+    .limit(12);
+  data.patientMetrics = metricsRows || [];
+  window._lastProfileData = data; // cache for live patch after metric insert
+
   const exercises = data.treatmentPlan?.exercises || [];
   const hasPlan = exercises.length > 0 && data.treatmentPlan?.status === 'active';
 
@@ -1265,8 +1276,8 @@ async function loadPatientProfile() {
   renderPatientPortal(data, hasPlan);
   applyProfile(name, data.patient.pain_location || data.patient.cohort || null, hasPlan, data);
 
-  // Build chart with real check-in data
-  buildChart(data.checkIns || []);
+  // Build chart from patient_metrics (avg_completion_rate per week)
+  buildChart(data.patientMetrics);
 
   // Load appointments dynamically
   await loadAppointments();
@@ -1513,17 +1524,23 @@ function renderProgress(data, hasPlan) {
     return;
   }
 
-  const checkIns = data?.checkIns || [];
-  const latest = checkIns[0] || {};
-  const completion = latest.completion_rate ?? null;
-  const pain = latest.pain_score ?? latest.pain_level ?? null;
-  const confidence = latest.confidence_score ?? latest.confidence ?? null;
+  // patient_metrics = home progress logs (exercise completion, pain, confidence)
+  // ordered DESC by week_number, so index 0 = most recent week
+  const metrics = data?.patientMetrics || [];
+  const latest  = metrics[0] || {};
+  const completion = latest.avg_completion_rate ?? null;
+  const pain       = latest.avg_pain_level      ?? null;
+  const confidence = latest.avg_confidence      ?? null;
+  const weekLabel  = latest.week_number ? `Week ${latest.week_number}` : null;
+
   el.innerHTML = `
     <div class="reassurance" style="margin-bottom:14px">
       <div class="reassurance-icon">✓</div>
       <div class="reassurance-text">
-        <strong>${checkIns.length ? 'Latest check-in recorded.' : 'No check-ins yet.'}</strong>
-        ${checkIns.length ? `Submitted ${escapeHtml(formatDate(latest.submitted_at || latest.created_at))}.` : 'Complete a check-in to build your progress history.'}
+        <strong>${metrics.length ? 'Progress data recorded.' : 'No progress logged yet.'}</strong>
+        ${metrics.length
+          ? `Latest entry: ${escapeHtml(weekLabel || 'this week')} — ${latest.check_in_count || 0} session${(latest.check_in_count || 0) === 1 ? '' : 's'} logged.`
+          : 'Mark your daily exercises as done to start building your progress history.'}
       </div>
     </div>
     <div class="card gap-b">
@@ -1532,7 +1549,7 @@ function renderProgress(data, hasPlan) {
         <div class="sig-dot ${completion == null || completion >= 65 ? 'green' : 'amber'}"></div>
         <div class="sig-info">
           <div class="sig-name">Exercise completion</div>
-          <div class="sig-val">${completion == null ? 'No completion data yet' : `${completion}% from latest check-in`}</div>
+          <div class="sig-val">${completion == null ? 'No completion data yet' : `${Math.round(completion)}% avg this week`}</div>
         </div>
         <span class="sig-badge ${completion == null || completion >= 65 ? 'green' : 'amber'}">${completion == null ? 'Pending' : 'Tracked'}</span>
       </div>
@@ -1540,7 +1557,7 @@ function renderProgress(data, hasPlan) {
         <div class="sig-dot ${pain == null || pain <= 3 ? 'green' : 'amber'}"></div>
         <div class="sig-info">
           <div class="sig-name">Pain level</div>
-          <div class="sig-val">${pain == null ? 'No pain score submitted yet' : `${pain}/10`}</div>
+          <div class="sig-val">${pain == null ? 'No pain score submitted yet' : `${pain}/10 avg this week`}</div>
         </div>
         <span class="sig-badge ${pain == null || pain <= 3 ? 'green' : 'amber'}">${pain == null ? 'Pending' : 'Tracked'}</span>
       </div>
@@ -1548,7 +1565,7 @@ function renderProgress(data, hasPlan) {
         <div class="sig-dot ${confidence == null || confidence >= 6 ? 'green' : 'amber'}"></div>
         <div class="sig-info">
           <div class="sig-name">Recovery confidence</div>
-          <div class="sig-val">${confidence == null ? 'No confidence score submitted yet' : `${confidence}/10`}</div>
+          <div class="sig-val">${confidence == null ? 'No confidence score submitted yet' : `${confidence}/10 avg this week`}</div>
         </div>
         <span class="sig-badge ${confidence == null || confidence >= 6 ? 'green' : 'amber'}">${confidence == null ? 'Pending' : 'Tracked'}</span>
       </div>
@@ -1557,7 +1574,7 @@ function renderProgress(data, hasPlan) {
       <div class="card-title">Exercise consistency</div>
       <div class="chart-area" id="main-chart"></div>
       <div class="chart-labels" id="main-labels"></div>
-      <div class="prog-note">This chart uses completion rates from your submitted check-ins.</div>
+      <div class="prog-note">Weekly average completion rate from your logged sessions.</div>
     </div>
     <div class="card">
       <div class="card-title">Goals</div>
@@ -1988,42 +2005,98 @@ function markExerciseDone(cbId, lblId, exerciseIndex) {
 }
 
 async function _submitDailyCheckIn() {
-  if (!currentPatientRecord?.id || !supabaseClient) return;
+  if (!currentPatientRecord?.id || !supabaseClient) {
+    _showToast('⚠️ Not signed in — progress not saved.', 'amber');
+    return;
+  }
   try {
-    // Write a check-in row directly to Supabase (anon key, RLS allows patient inserts)
-    const today = new Date().toISOString().slice(0, 10);
-    const { error } = await supabaseClient.from('check_ins').insert({
-      patient_id:       currentPatientRecord.id,
-      completion_rate:  100,
-      pain_score:       null,   // patient can fill in later via a proper check-in form
-      confidence_score: null,
-      submitted_at:     new Date().toISOString(),
-      notes:            `Daily exercises completed (${today})`
-    });
-    if (error) { console.warn('Check-in write failed:', error.message); return; }
+    // Week number = ISO week of the year (1–52)
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const weekNumber = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
 
-    // Show a non-intrusive toast
+    // Check if a row already exists for this patient + week
+    const { data: existing } = await supabaseClient
+      .from('patient_metrics')
+      .select('*')
+      .eq('patient_id', currentPatientRecord.id)
+      .eq('week_number', weekNumber)
+      .maybeSingle();
+
+    let result;
+    if (existing) {
+      // Upsert: increment check_in_count, keep avg_completion_rate at 100
+      // (recalculate avg if pain/confidence are added later)
+      const newCount = (existing.check_in_count || 0) + 1;
+      const { data: updated, error } = await supabaseClient
+        .from('patient_metrics')
+        .update({
+          check_in_count:      newCount,
+          avg_completion_rate: 100  // patient completed all exercises today
+        })
+        .eq('patient_id', currentPatientRecord.id)
+        .eq('week_number', weekNumber)
+        .select()
+        .single();
+      if (error) {
+        console.error('patient_metrics update failed:', error.code, error.message);
+        _showToast('⚠️ Could not save progress: ' + error.message, 'amber');
+        return;
+      }
+      result = updated;
+    } else {
+      // Insert new week row
+      const { data: inserted, error } = await supabaseClient
+        .from('patient_metrics')
+        .insert({
+          patient_id:          currentPatientRecord.id,
+          week_number:         weekNumber,
+          avg_completion_rate: 100,
+          avg_pain_level:      null,
+          avg_confidence:      null,
+          check_in_count:      1
+        })
+        .select()
+        .single();
+      if (error) {
+        console.error('patient_metrics insert failed:', error.code, error.message);
+        _showToast('⚠️ Could not save progress: ' + error.message, 'amber');
+        return;
+      }
+      result = inserted;
+    }
+
     _showToast('✅ All done for today! Progress updated.');
 
-    // Reload profile data so Progress tab reflects the new check-in immediately
-    await loadPatientProfile();
+    // Patch in-memory data and re-render ONLY the Progress section + chart
+    // Do NOT call loadPatientProfile() — it re-renders Today page and wipes checkbox state
+    if (window._lastProfileData) {
+      const pm = window._lastProfileData.patientMetrics || [];
+      const idx = pm.findIndex(r => r.week_number === weekNumber);
+      if (idx >= 0) pm[idx] = result; else pm.unshift(result);
+      window._lastProfileData.patientMetrics = pm;
+      renderProgress(window._lastProfileData, true);
+      buildChart(pm);
+    }
   } catch (e) {
-    console.warn('Check-in submission error:', e);
+    console.error('Progress submission error:', e);
+    _showToast('⚠️ Unexpected error saving progress.', 'amber');
   }
 }
 
-function _showToast(msg) {
+function _showToast(msg, type) {
   let t = document.getElementById('_toast');
   if (!t) {
     t = document.createElement('div');
     t.id = '_toast';
-    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:13px;font-weight:500;padding:10px 20px;border-radius:24px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.15);transition:opacity .4s';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;font-weight:500;padding:10px 20px;border-radius:24px;z-index:9999;box-shadow:0 4px 16px rgba(0,0,0,.15);transition:opacity .4s';
     document.body.appendChild(t);
   }
+  t.style.background = type === 'amber' ? 'var(--amber)' : 'var(--green)';
   t.textContent = msg;
   t.style.opacity = '1';
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 4000);
 }
 
 // Legacy alias — keep for any static HTML checkboxes that still call toggleCheck
@@ -2053,29 +2126,28 @@ function showFlareAnswer(type) {
 /* ─────────────────────────────────────────────────────
    CHART (only built after login)
 ───────────────────────────────────────────────────── */
-function buildChart(checkIns) {
+function buildChart(metrics) {
   const chartEl = document.getElementById('main-chart');
   const lblsEl = document.getElementById('main-labels');
   if (!chartEl) return;
   chartEl.innerHTML = '';
   if (lblsEl) lblsEl.innerHTML = '';
 
-  // Use real check-in completion_rate data if available
-  const dataPoints = (checkIns || [])
-    .filter(c => c.completion_rate != null)
-    .slice(0, 10)          // latest 10 already ordered DESC by API
-    .reverse();            // chart left-to-right (oldest → newest)
+  // patient_metrics rows: avg_completion_rate per week_number
+  // Comes in DESC order (newest first) — reverse for left-to-right chart
+  const dataPoints = (metrics || [])
+    .filter(c => c.avg_completion_rate != null)
+    .slice(0, 12)
+    .reverse();
 
   if (!dataPoints.length) {
-    chartEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">No check-in data yet — complete your first check-in to see your chart.</div>';
+    chartEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">No progress data yet — mark your exercises as done to see your chart.</div>';
     return;
   }
 
-  const values = dataPoints.map(c => c.completion_rate);
-  const labels = dataPoints.map((c, i) => {
-    if (c.week_number) return 'W' + c.week_number;
-    const d = new Date(c.submitted_at);
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const values = dataPoints.map(c => c.avg_completion_rate);
+  const labels = dataPoints.map((c) => {
+    return c.week_number ? 'W' + c.week_number : '—';
   });
 
   const maxVal = Math.max(...values, 1);
